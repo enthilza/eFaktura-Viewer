@@ -27,20 +27,20 @@ internal static class Updates
         if (!System.Version.TryParse(offer.Version, out _) || offer.Tag != "v" + offer.Version || offer.File != "eFakturaViewer.exe" || offer.Runtime != "win-x64" || offer.Size < 10000 || offer.Size > 350L * 1024 * 1024) throw new InvalidDataException("Neplatne udaje aktualizacie.");
         return offer;
     }
-    static async Task<byte[]> Small(HttpClient client, string url)
+    static async Task<byte[]> Small(HttpClient client, string url, CancellationToken token = default)
     {
-        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead); response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(); using var m = new MemoryStream(); byte[] buffer = new byte[4096]; int n;
-        while ((n = await stream.ReadAsync(buffer)) != 0) { if (m.Length + n > 16384) throw new InvalidDataException("Prilis velky popis aktualizacie."); m.Write(buffer, 0, n); } return m.ToArray();
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token); response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(token); using var m = new MemoryStream(); byte[] buffer = new byte[4096]; int n;
+        while ((n = await stream.ReadAsync(buffer, token)) != 0) { if (m.Length + n > 16384) throw new InvalidDataException("Prilis velky popis aktualizacie."); m.Write(buffer, 0, n); } return m.ToArray();
     }
-    internal static async Task<UpdateOffer?> Check()
+    internal static async Task<UpdateOffer?> Check(CancellationToken token = default)
     {
         using var client = Client(); byte[] discovery;
-        try { discovery = await Small(client, $"https://github.com/{Repository}/releases/latest/download/update.json"); }
+        try { discovery = await Small(client, $"https://github.com/{Repository}/releases/latest/download/update.json", token); }
         catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.NotFound) { return null; }
         var hint = JsonSerializer.Deserialize<UpdateOffer>(discovery) ?? throw new InvalidDataException("Neplatny popis.");
         if (!System.Version.TryParse(hint.Version, out var v) || hint.Tag != "v" + hint.Version) throw new InvalidDataException("Neplatna verzia.");
-        var bytes = await Small(client, Asset(hint.Tag, "update.json")); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(hint.Tag, "update.sig")));
+        var bytes = await Small(client, Asset(hint.Tag, "update.json"), token); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(hint.Tag, "update.sig"), token));
         var offer = Manifest(bytes, sig);
         if (offer.Tag != hint.Tag) throw new InvalidDataException("Verzia popisu nesuhlasi.");
         return System.Version.Parse(offer.Version) > Assembly.GetExecutingAssembly().GetName().Version ? offer : null;
@@ -51,28 +51,40 @@ internal static class Updates
         using var rsa = RSA.Create(); rsa.FromXmlString(key ?? Key);
         if (!rsa.VerifyData(file, Convert.FromBase64String(offer.Signature), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)) throw new InvalidDataException("Podpis EXE nie je platny.");
     }
-    internal static async Task Install(UpdateOffer offer, string? reopen, IProgress<int> progress)
+    internal static async Task Install(UpdateOffer offer, string? reopen, IProgress<int> progress, CancellationToken token = default)
     {
         var job = Path.Combine(Preferences.DirectoryPath, "Updates", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(job);
+        try
+        {
         using var client = Client();
-        var bytes = await Small(client, Asset(offer.Tag, "update.json")); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(offer.Tag, "update.sig")));
+        var bytes = await Small(client, Asset(offer.Tag, "update.json"), token); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(offer.Tag, "update.sig"), token));
         var verified = Manifest(bytes, sig); if (verified != offer) throw new InvalidDataException("Vydanie sa zmenilo. Skuste kontrolu znova.");
         File.WriteAllBytes(Path.Combine(job, "update.json"), bytes); File.WriteAllText(Path.Combine(job, "update.sig"), sig);
         var candidate = Path.Combine(job, offer.File);
-        using (var response = await client.GetAsync(Asset(offer.Tag, offer.File), HttpCompletionOption.ResponseHeadersRead))
+        using (var response = await client.GetAsync(Asset(offer.Tag, offer.File), HttpCompletionOption.ResponseHeadersRead, token))
         {
-            response.EnsureSuccessStatusCode(); await using var input = await response.Content.ReadAsStreamAsync(); await using var output = File.Create(candidate);
+            response.EnsureSuccessStatusCode(); await using var input = await response.Content.ReadAsStreamAsync(token); await using var output = File.Create(candidate);
             var buffer = new byte[65536]; int n; long total = 0;
-            while ((n = await input.ReadAsync(buffer)) > 0) { total += n; if (total > offer.Size) throw new InvalidDataException("Subor presahuje podpisanu velkost."); await output.WriteAsync(buffer.AsMemory(0, n)); progress.Report((int)(total * 100 / offer.Size)); }
+            while ((n = await input.ReadAsync(buffer, token)) > 0) { total += n; if (total > offer.Size) throw new InvalidDataException("Subor presahuje podpisanu velkost."); await output.WriteAsync(buffer.AsMemory(0, n), token); progress.Report((int)(total * 100 / offer.Size)); }
         }
         VerifyFile(candidate, offer);
         File.WriteAllText(Path.Combine(job, "reopen.json"), JsonSerializer.Serialize(reopen));
         var target = Environment.ProcessPath!; // Kontrola prava zapisu pred ukoncenim okna.
         var probe = Path.Combine(Path.GetDirectoryName(target)!, ".efaktura-write-" + Guid.NewGuid().ToString("N")); using (File.Create(probe)) { } File.Delete(probe);
         var helper = Path.Combine(job, "updater.exe"); File.Copy(target, helper);
+        token.ThrowIfCancellationRequested();
         var start = new ProcessStartInfo(helper) { UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add("--apply-update"); start.ArgumentList.Add(job); start.ArgumentList.Add(target); start.ArgumentList.Add(Environment.ProcessId.ToString());
         _ = Process.Start(start) ?? throw new IOException("Aktualizator sa nespustil.");
+        }
+        catch
+        {
+            // Iba subory tejto konkretnej operacie; nikdy neprechadzat ine aktualizacie ani cielovy EXE.
+            foreach (var name in new[] { "eFakturaViewer.exe", "update.json", "update.sig", "reopen.json", "updater.exe" })
+                try { File.Delete(Path.Combine(job, name)); } catch (IOException) { }
+            try { Directory.Delete(job); } catch (IOException) { }
+            throw;
+        }
     }
     internal static int Apply(string job, string target, string parent)
     {

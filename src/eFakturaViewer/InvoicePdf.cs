@@ -15,8 +15,8 @@ internal static class InvoicePdf
         d.Info.Author = "eFaktura Viewer";
         var normal = d.Styles[StyleNames.Normal]!; normal.Font.Name = "Arial"; normal.Font.Size = 9;
         normal.ParagraphFormat.SpaceAfter = 4;
-        var h = d.Styles[StyleNames.Heading1]!; h.Font.Name = "Arial"; h.Font.Size = 24; h.Font.Color = Colors.DarkSlateGray;
-        var h2 = d.Styles[StyleNames.Heading2]!; h2.Font.Name = "Arial"; h2.Font.Size = 12; h2.Font.Color = Color.FromRgb(185, 82, 22); h2.ParagraphFormat.SpaceBefore = 12;
+        var h = d.Styles[StyleNames.Heading1]!; h.Font.Name = "Arial"; h.Font.Size = 24; h.Font.Color = Color.FromRgb(48, 48, 48);
+        var h2 = d.Styles[StyleNames.Heading2]!; h2.Font.Name = "Arial"; h2.Font.Size = 12; h2.Font.Color = Color.FromRgb(48, 48, 48); h2.ParagraphFormat.SpaceBefore = 12;
         var s = d.AddSection(); s.PageSetup.PageFormat = PageFormat.A4;
         s.PageSetup.LeftMargin = Unit.FromMillimeter(16); s.PageSetup.RightMargin = Unit.FromMillimeter(16);
         s.PageSetup.TopMargin = Unit.FromMillimeter(15); s.PageSetup.BottomMargin = Unit.FromMillimeter(17);
@@ -70,7 +70,7 @@ internal static class InvoicePdf
         if (totals != null) foreach (var e in totals.Elements())
         {
             var p = s.AddParagraph(Label(e.Name.LocalName) + ":  " + Money(e.Value) + " " + ((string?)e.Attribute("currencyID") ?? invoice.Currency));
-            if (e.Name.LocalName == "PayableAmount") { p.Format.Font.Size = 18; p.Format.Font.Bold = true; p.Format.SpaceBefore = 8; p.Format.Font.Color = Color.FromRgb(185, 82, 22); }
+            if (e.Name.LocalName == "PayableAmount") { p.Format.Font.Size = 18; p.Format.Font.Bold = true; p.Format.SpaceBefore = 8; p.Format.Font.Color = Color.FromRgb(48, 48, 48); }
         }
         // Referencie a vsetky dalsie hlavickove prvky zostanu viditelne, binarne prilohy sa nevypisuju.
         var extra = r.Elements().Where(x => x.Name.Namespace != A && !fields.Contains(x.Name.LocalName)).ToList();
@@ -86,7 +86,7 @@ internal static class InvoicePdf
     static Table Items(Section s)
     {
         var t = s.AddTable(); double[] widths = [10, 67, 24, 28, 18, 31]; foreach (var w in widths) t.AddColumn(Unit.FromMillimeter(w));
-        var r = t.AddRow(); r.HeadingFormat = true; r.Shading.Color = Color.FromRgb(246, 237, 229); r.Format.Font.Bold = true; r.Format.Font.Size = 8; r.TopPadding = 6; r.BottomPadding = 6;
+        var r = t.AddRow(); r.HeadingFormat = true; r.Shading.Color = Color.FromRgb(237, 237, 237); r.Format.Font.Bold = true; r.Format.Font.Size = 8; r.TopPadding = 6; r.BottomPadding = 6;
         string[] headers = ["C.", "Nazov polozky", "Mnozstvo", "Cena / zaklad", "DPH", "Bez DPH"];
         for (var i = 0; i < 6; i++) r.Cells[i].AddParagraph(headers[i]); return t;
     }
@@ -114,7 +114,7 @@ internal static class InvoicePdf
     static void Small(Section s, string text, CancellationToken token)
     {
         // Ohranicene odstavce zachovaju cely obsah a zabezpecia strankovanie velmi dlheho textu.
-        for (var i = 0; i < text.Length; i += 600) { token.ThrowIfCancellationRequested(); var p = s.AddParagraph(text.Substring(i, Math.Min(600, text.Length - i))); p.Format.Font.Size = 8; p.Format.Font.Color = Colors.DarkSlateGray; p.Format.LeftIndent = 5; }
+        for (var i = 0; i < text.Length; i += 600) { token.ThrowIfCancellationRequested(); var p = s.AddParagraph(text.Substring(i, Math.Min(600, text.Length - i))); p.Format.Font.Size = 8; p.Format.Font.Color = Color.FromRgb(64, 64, 64); p.Format.LeftIndent = 5; }
     }
     static IEnumerable<string> Leaves(XElement e, string prefix = "")
     {

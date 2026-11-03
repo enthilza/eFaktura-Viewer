@@ -80,22 +80,69 @@ internal static class SelfTest
         Updates.Verify(payload, signature, rsa.ToXmlString(false)); checks.Add("Platny podpis");
         Reject(() => Updates.Verify(Encoding.UTF8.GetBytes("zmenene"), signature, rsa.ToXmlString(false)), "Pozmeneny podpisany obsah");
         var window = new ViewerWindow(null); window.Show();
+        foreach (var screen in new[] { new Rect(0, 0, 1920, 1080), new Rect(-2560, -200, 2560, 1440), new Rect(1920, 0, 3840, 2160) })
+        {
+            var bounds = WindowPlacement.Calculate(screen);
+            Check(Math.Abs(bounds.Height - screen.Height * .95) < .01 && Math.Abs(bounds.Width / bounds.Height - 210.0 / 297) < .0001 && Math.Abs(bounds.X + bounds.Width / 2 - (screen.X + screen.Width / 2)) < .01 && Math.Abs(bounds.Y + bounds.Height / 2 - (screen.Y + screen.Height / 2)) < .01, "A4 a 95 % vysky, centrovanie monitora " + screen);
+        }
+        var expected = WindowPlacement.LastInitialBounds;
+        Check(WindowPlacement.GetWindowRect(new System.Windows.Interop.WindowInteropHelper(window).Handle, out var actual) && Math.Abs(actual.Left - expected.Left) <= 2 && Math.Abs(actual.Top - expected.Top) <= 2 && Math.Abs((actual.Right - actual.Left) - expected.Width) <= 2 && Math.Abs((actual.Bottom - actual.Top) - expected.Height) <= 2, "Skutocne otvorene okno ma pozadovanu polohu a rozmery");
+        Check(window.FontFamily.Source == "Segoe UI Variable, Segoe UI", "Pismo zhodne s Lumou");
+        Check(window.HeaderForTest.InputHitTest(new Point(window.HeaderForTest.ActualWidth / 2, 1)) != null && window.CanDragHeader(window.HeaderForTest, new Point(120, 22)) && !window.CanDragHeader(window.HeaderToolsForTest.Children[0], new Point(120, 22)) && !window.CanDragHeader(window.HeaderForTest, new Point(120, 500)), "Prazdne zahlavie je uchopitelne, tlacidla a dokument nie");
+        using (var iconStream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico")).Stream)
+        {
+            var decoder = new IconBitmapDecoder(iconStream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            Check(decoder.Frames.Count == 7 && decoder.Frames.Any(x => x.PixelWidth == 16) && decoder.Frames.Any(x => x.PixelWidth == 256), "Ikona obsahuje sedem velkosti");
+            foreach (var frame in decoder.Frames) { var bgra = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0); var px = new byte[bgra.PixelWidth * bgra.PixelHeight * 4]; bgra.CopyPixels(px, bgra.PixelWidth * 4, 0); Check(px[3] == 0 && Enumerable.Range(0, px.Length / 4).All(i => px[i * 4] == px[i * 4 + 1] && px[i * 4 + 1] == px[i * 4 + 2]), "Priehladna ciernobiela ikona " + frame.PixelWidth); }
+        }
         await window.OpenPath(Path.Combine(examples, "02_fmcg.xml"));
+        window.UpdateLayout();
+        Check(window.CurrentFit == ViewerWindow.FitMode.Height && window.PageFitsHeight, "Predvolene sa cela strana zmesti na vysku");
+        var heightWidth = window.PageWidth; window.TestFit(ViewerWindow.FitMode.Width); Check(window.PageWidth > heightWidth, "Prisposobenie sirke skutocne zvacsi stranu"); window.TestFit(ViewerWindow.FitMode.Height);
         Check(window.NavigationVisible && window.ProfileBadge.Contains("ROZSIRENY FMCG") && window.HasPdf, "Rozsireny profil, PDF a navigacia v GUI");
-        if (canRender) { await window.Capture(Path.Combine(output, "viewer-dark.png"), false); await window.Capture(Path.Combine(output, "viewer-light.png"), true); }
+        if (canRender)
+        {
+            await window.Capture(Path.Combine(output, "viewer-dark.png"), false);
+            var dialog = AppDialog.Preview(window); dialog.Show(); dialog.UpdateLayout(); SaveWindow(dialog, Path.Combine(output, "dialog-dark.png")); dialog.Close();
+            await window.Capture(Path.Combine(output, "viewer-light.png"), true);
+            Check(PageInkVisible(Path.Combine(output, "viewer-light.png")), "Po prepnuti temy je faktura viditelna aj vo vykreslenom okne");
+            dialog = AppDialog.Preview(window); dialog.Show(); dialog.UpdateLayout(); SaveWindow(dialog, Path.Combine(output, "dialog-light.png")); dialog.Close();
+        }
+        window.SetThemeForTest(false); Check(window.BackgroundAlpha is >= 228 and <= 231, "Tmave pozadie ma priblizne 90 % krytie");
+        window.SetThemeForTest(true); Check(window.BackgroundAlpha is >= 228 and <= 231, "Svetle pozadie ma priblizne 90 % krytie");
         await window.OpenPath(Path.Combine(examples, "03_s_pdf.xml")); Check(window.ProfileBadge.EndsWith("Z XML") && window.HasPdf, "Predvoleny nahlad je generovany aj pri prilohe");
         await window.TestSelectSource(1); Check(window.ProfileBadge.EndsWith("VLOZENE PDF") && window.HasPdf, "Prepinanie na vlozene PDF");
+        Check(window.EmbeddedSwitchChecked && !window.AttachmentPickerVisible, "Jedina priloha pouziva prepinac bez zbytocneho zoznamu");
+        var multiplePath = Path.Combine(output, "multiple-pdf.xml"); File.WriteAllText(multiplePath, two.ToString());
+        await window.OpenPath(multiplePath); await window.TestSelectSource(2); Check(window.EmbeddedSwitchChecked && window.AttachmentPickerVisible && window.HasPdf, "Pri viacerych prilohach sa ukaze vyber konkretneho PDF");
+        await window.TestSelectSource(0); Check(!window.EmbeddedSwitchChecked && !window.AttachmentPickerVisible && window.HasPdf, "Vypnutie priloh vrati generovany nahlad");
+        Check(AppDialog.Work(window, "Kontrola", "Overujem dialog…", (_, _) => Task.CompletedTask), "Modalny priebeh sa po dokonceni zatvori");
+        Check(!AppDialog.Work(window, "Kontrola", "Overujem zrusenie…", (_, _) => Task.FromException(new OperationCanceledException())), "Zrusena operacia vrati riadenie vlastnemu oknu");
         var single = Path.Combine(output, "single"); Directory.CreateDirectory(single); File.Copy(Path.Combine(examples, "01_zaklad.xml"), Path.Combine(single, "faktura.xml"), true);
         // Z minuleho behu moze ostat ukazka beznej XML konfiguracie.
         var prior = Path.Combine(single, "settings.xml"); if (File.Exists(prior)) File.Delete(prior);
-        await window.OpenPath(Path.Combine(single, "faktura.xml")); Check(!window.NavigationVisible, "Jeden XML skryje spodny panel"); if (canRender) await window.Capture(Path.Combine(output, "viewer-single.png"), false);
+        await window.OpenPath(Path.Combine(single, "faktura.xml")); Check(!window.NavigationVisible, "Jeden XML skryje spodny panel"); Check(window.HeaderToolsVisible && window.PageFitsHeight, "Pri jednom XML zostavaju horne nastroje a strana na vysku"); if (canRender) await window.Capture(Path.Combine(output, "viewer-single.png"), false);
         var unknown = Path.Combine(single, "settings.xml"); File.WriteAllText(unknown, "<settings><server port='443'>Ukazka</server><enabled>true</enabled></settings>");
         await window.OpenPath(unknown); Check(window.EmptyTitle == "Toto nie je eFaktúra." && window.NavigationVisible, "Bezne XML zobrazi oznam a zachova navigaciu"); if (canRender) await window.Capture(Path.Combine(output, "viewer-xml.png"), false);
         var first = window.OpenPath(Path.Combine(examples, "02_fmcg.xml")); var second = window.OpenPath(Path.Combine(examples, "04_dobropis.xml")); await Task.WhenAll(first, second);
         Check(window.Title.StartsWith("04_dobropis.xml") && window.OpenedNumber == Invoice.Load(Path.Combine(examples, "04_dobropis.xml"), CancellationToken.None).Number && window.HasPdf, "Rychle listovanie zachova poslednu poziadavku a jej PDF");
         Check(originals.All(x => x.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(x.Key)))), "Vstupne subory zostali nezmenene");
         if (!canRender) foreach (var p in Directory.GetFiles(output, "viewer-*.png")) File.Delete(p);
-        File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = "1.0.0" }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = typeof(App).Assembly.GetName().Version!.ToString(3) }, new JsonSerializerOptions { WriteIndented = true }));
         window.Close();
+    }
+    static void SaveWindow(Window window, string path)
+    {
+        var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32); bitmap.Render(window);
+        var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap)); using var stream = File.Create(path); png.Save(stream);
+    }
+    static bool PageInkVisible(string path)
+    {
+        using var stream = File.OpenRead(path); var png = new PngBitmapDecoder(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        var frame = new FormatConvertedBitmap(png.Frames[0], PixelFormats.Bgra32, null, 0); var data = new byte[frame.PixelWidth * frame.PixelHeight * 4]; frame.CopyPixels(data, frame.PixelWidth * 4, 0);
+        int ink = 0;
+        for (int y = frame.PixelHeight / 4; y < frame.PixelHeight * 3 / 4; y++) for (int x = frame.PixelWidth / 4; x < frame.PixelWidth * 3 / 4; x++)
+        { var i = (y * frame.PixelWidth + x) * 4; if (data[i] < 150 && data[i + 1] < 150 && data[i + 2] < 150 && data[i + 3] > 200) ink++; }
+        return ink > 200;
     }
 }

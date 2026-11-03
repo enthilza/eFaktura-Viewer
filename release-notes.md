@@ -1,15 +1,15 @@
-# eFaktura Viewer 1.0.0
+# eFaktura Viewer 1.0.1
 
-Prve verejne vydanie pre Windows 10/11 x64.
+Novy vzhlad podla aplikacie Luma: svetla a tmava tema v odtienoch sivej, Segoe UI Variable, zaoblene okna a ovladacie prvky. Pozadie ma priblizne 90 % krytie, faktura zostava nepriehladna a citatelna.
 
-- Otvaranie XML argumentom, pretiahnutim alebo cez Ctrl+O; volitelna asociacia Windows.
-- BIS3, FMCG a dobropisy; generovany viacstranovy nahlad a vyber vlozenych PDF.
-- Viditelny profil zakladny/rozsireny, svetla a tmava sedo-oranzova tema.
-- Listovanie susednymi XML, skryty panel pri jedinom subore.
-- Stromovy pohlad a oznam „Toto nie je eFaktúra.“ pre ine XML.
-- Zoom, export PDF, tlac, automaticka kontrola aktualizacii a manualne tlacidlo.
-- Aktualizacie overuju digitalny podpis EXE a manifestu; nevydavame samostatny checksum subor. GitHub automaticky zobrazuje vlastny digest kazdeho nahrateho suboru.
+- Kazde otvorenie vycentruje okno na monitore, s vyskou 95 % obrazovky a pomerom A4.
+- Okno sa da presuvat za celu volnu plochu zahlavia.
+- Predvolene prisposobenie vyske, samostatne horne tlacidla pre vysku a sirku.
+- Prepnutie schemy a aktualizacia su vzdy hore, aj pri jedinom XML bez spodnej navigacie.
+- Prepinac vlozeneho PDF, s vyberom konkretnej prilohy iba pri viacerych PDF.
+- Vlastne zaoblene oznamy, potvrdenia a priebeh aktualizacie vratane zrusenia stahovania.
+- Nova priehladna ciernobiela ikona faktury v siedmich velkostiach.
 
-Automaticke kontroly su uspesne. Vizualna kontrola WPF okna je v aktualnej odpojenej relacii Windows preskocena; PDF nahlady boli overene samostatne. Tlac na fyzickej tlaciarni, rozne DPI a konkretne sietove disky vyzaduju rucne overenie.
+Overenych 59 kontrol bez preskocenia vratane skutocneho vykreslenia oboch tem, polohy a velkosti okna, PDF priloh a modalnych okien.
 
-Stiahnite `eFakturaViewer.exe`. Nie je potrebna instalacia .NET ani Pythonu.
+Stiahnite eFakturaViewer.exe alebo v aplikacii pouzite Aktualizovat aplikaciu. Nie je potrebna instalacia .NET ani Pythonu. Vydanie obsahuje podpisane aktualizacne udaje; sukromny podpisovaci kluc nie je verejny.

@@ -17,6 +17,11 @@ internal sealed class Preferences
 
 internal sealed class App : Application
 {
+    internal App()
+    {
+        Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/eFakturaViewer;component/VisualStyle.xaml", UriKind.Relative) });
+        VisualStyle.Apply(Preferences.Load().Light);
+    }
     [STAThread]
     static int Main(string[] args)
     {
