@@ -1,0 +1,5 @@
+* text=auto
+*.exe binary
+*.ico binary
+*.pdf binary
+src/eFakturaViewer/Assets/*-notices.txt -whitespace

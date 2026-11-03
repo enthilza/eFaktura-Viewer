@@ -1,0 +1,306 @@
+[
+  {
+    "name": "item_type",
+    "type": "char",
+    "label": "Typ polozky",
+    "note": "Z = zbozi / O = obaly / S = servis",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 11
+  },
+  {
+    "name": "units_per_carton",
+    "type": "num",
+    "label": "Pocet spotrebitelskych jedn. vo fakt. jednotke",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 12
+  },
+  {
+    "name": "delivery_date",
+    "type": "date",
+    "label": "Datum dodania",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 13
+  },
+  {
+    "name": "excise_duty_category_code",
+    "type": "char",
+    "label": "Skupina spotrebnej dane - kod",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 14
+  },
+  {
+    "name": "excise_duty_basis",
+    "type": "num",
+    "label": "Zaklad pre spotrebnu dan (mnozstvo sp. dane)",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 15
+  },
+  {
+    "name": "excise_duty_amount",
+    "type": "num",
+    "label": "Ciastka spotrebnej dane",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 16
+  },
+  {
+    "name": "buyer_order_number",
+    "type": "char",
+    "label": "Cislo objednavky zakaznika",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 17
+  },
+  {
+    "name": "buyer_order_date",
+    "type": "date",
+    "label": "Datum vystavenia objednavky",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 18
+  },
+  {
+    "name": "supplier_order_number",
+    "type": "char",
+    "label": "Cislo objednavky u dodavatela",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 19
+  },
+  {
+    "name": "supplier_order_date",
+    "type": "date",
+    "label": "Datum prijatia objednavky u dodavatela",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 20
+  },
+  {
+    "name": "delivery_note_number",
+    "type": "char",
+    "label": "Cislo dodacieho listu",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 21
+  },
+  {
+    "name": "delivery_note_date",
+    "type": "date",
+    "label": "Datum vystavenia dodacieho listu",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 22
+  },
+  {
+    "name": "receiving_advice_number",
+    "type": "char",
+    "label": "Cislo prijemky (RECADV)",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 23
+  },
+  {
+    "name": "receiving_advice_date",
+    "type": "date",
+    "label": "Datum vystavenia prijemky (RECADV)",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 24
+  },
+  {
+    "name": "invoice_reference_type",
+    "type": "char",
+    "label": "Vyznam ref. cisla faktury",
+    "note": "AAB = Proforma invoice number\nIV = Invoice number",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 25
+  },
+  {
+    "name": "invoice_reference_number",
+    "type": "char",
+    "label": "Referencne cislo faktury (zalohovej apod.)",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 26
+  },
+  {
+    "name": "invoice_reference_date",
+    "type": "date",
+    "label": "Datum vztahujuci sa k ref. cislu faktury",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 27
+  },
+  {
+    "name": "free_reference",
+    "type": "char",
+    "label": "Referencne cislo volne (vzajomne definovane)",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 28
+  },
+  {
+    "name": "free_reference_date",
+    "type": "date",
+    "label": "Datum k volnemu referencnemu cislu",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 29
+  },
+  {
+    "name": "ordered_by_gln",
+    "type": "char",
+    "label": "EAN objednavatela",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 30
+  },
+  {
+    "name": "delivery_party_gln",
+    "type": "char",
+    "label": "EAN miesta dodania",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 31
+  },
+  {
+    "name": "store_number_gln",
+    "type": "char",
+    "label": "EAN konecneho miesta dodania",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 32
+  },
+  {
+    "name": "ultimate_customer_gln",
+    "type": "char",
+    "label": "EAN koncoveho spotrebitela",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 33
+  },
+  {
+    "name": "ultimate_customer_name",
+    "type": "char",
+    "label": "Koncovy spotrebitel - Meno/Nazov",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 34
+  },
+  {
+    "name": "recycling_fee_type",
+    "type": "num",
+    "label": "Typ recyklacneho poplatku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 35
+  },
+  {
+    "name": "recycling_fee_amount",
+    "type": "num",
+    "label": "Recyklacny poplatok celkom za polozku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 36
+  },
+  {
+    "name": "recycling_fee_per_unit",
+    "type": "char",
+    "label": "Recyklacny poplatok na jednotku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 37
+  },
+  {
+    "name": "recycling_fee_unit",
+    "type": "char",
+    "label": "Recyklacny poplatok - merna jednotka",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 38
+  },
+  {
+    "name": "copyright_fee_type",
+    "type": "num",
+    "label": "Typ autorskeho poplatku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 39
+  },
+  {
+    "name": "copyright_fee_amount",
+    "type": "num",
+    "label": "Autorsky poplatok celkom za polozku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 40
+  },
+  {
+    "name": "copyright_fee_per_unit",
+    "type": "char",
+    "label": "Autorsky poplatok na jednotku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 41
+  },
+  {
+    "name": "copyright_fee_unit",
+    "type": "char",
+    "label": "Autorsky poplatok - merna jednotka",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 42
+  },
+  {
+    "name": "free_text_law",
+    "type": "char",
+    "label": "Textove informacie vyplyvajuce z legislativnych poziadaviek",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 43
+  },
+  {
+    "name": "sukl_id",
+    "type": "char",
+    "label": "Kod tovaru (SUKL)",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 44
+  },
+  {
+    "name": "batch_number",
+    "type": "char",
+    "label": "Cislo sarze",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 45
+  },
+  {
+    "name": "consumer_unit_price",
+    "type": "num",
+    "label": "Predajna cena za jednotku",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 46
+  },
+  {
+    "name": "expiry_date",
+    "type": "date",
+    "label": "Pouzitelnost do (datum exspiracie)",
+    "note": "YYYY-MM-DD",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 47
+  },
+  {
+    "name": "vat_amount",
+    "type": "num",
+    "label": "Suma DPH na polozke",
+    "note": "",
+    "source_sheet": "AdditionalItemProperty",
+    "source_row": 48
+  }
+]
