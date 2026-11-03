@@ -8,7 +8,7 @@ Prve verejne vydanie pre Windows 10/11 x64.
 - Listovanie susednymi XML, skryty panel pri jedinom subore.
 - Stromovy pohlad a oznam „Toto nie je eFaktúra.“ pre ine XML.
 - Zoom, export PDF, tlac, automaticka kontrola aktualizacii a manualne tlacidlo.
-- Podpisane aktualizacie bez zverejneneho kontrolneho suctu EXE.
+- Aktualizacie overuju digitalny podpis EXE a manifestu; nevydavame samostatny checksum subor. GitHub automaticky zobrazuje vlastny digest kazdeho nahrateho suboru.
 
 Automaticke kontroly su uspesne. Vizualna kontrola WPF okna je v aktualnej odpojenej relacii Windows preskocena; PDF nahlady boli overene samostatne. Tlac na fyzickej tlaciarni, rozne DPI a konkretne sietove disky vyzaduju rucne overenie.
 
