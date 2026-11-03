@@ -48,8 +48,6 @@ Vydania obsahuju EXE, podpisany `update.json` a `update.sig`. Overuje sa RSA/SHA
 
 Samotny GitHub vsak od 03.06.2025 automaticky vytvara a zobrazuje nemenny SHA-256 digest kazdeho release suboru. Tuto platformovu vlastnost nasa aplikacia neriadi. Nie je to sukromny kluc ani podpisovacie tajomstvo. [Oznam GitHubu](https://github.blog/changelog/2025-06-03-releases-now-expose-digests-for-release-assets/)
 
-Samotny GitHub vsak od 03.06.2025 automaticky vytvara a zobrazuje nemenny SHA-256 digest kazdeho release suboru. Tuto platformovu vlastnost nasa aplikacia neriadi. Nie je to sukromny kluc ani podpisovacie tajomstvo. [Oznam GitHubu](https://github.blog/changelog/2025-06-03-releases-now-expose-digests-for-release-assets/)
-
 Aktualizator pocka na ukoncenie okna, vymeni EXE, overi start a otvori povodny XML. Pri zlyhani kontroly startu obnovi zalohu. Umiestnenie EXE musi povolovat zapis. Subory aktualizacie a pripadna chyba su v `%LOCALAPPDATA%\eFakturaViewer`.
 
 Pre vydavatela:
