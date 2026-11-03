@@ -14,7 +14,7 @@ internal sealed record Attachment(string Name, XElement Element)
         // Hlavicka je iba rychla kontrola; skutocnu citatelnost overi PDF komponent Windows.
         var bytes = Convert.FromBase64String(Element.Value);
         if (bytes.Length > Invoice.MaxBytes || bytes.Length < 5 || System.Text.Encoding.ASCII.GetString(bytes, 0, 5) != "%PDF-")
-            throw new InvalidDataException("Vlozena priloha nie je citatelne PDF.");
+            throw new InvalidDataException("Vložená príloha nie je čitateľné PDF.");
         return bytes;
     }
 }
@@ -39,10 +39,22 @@ internal sealed class Invoice
     internal byte[] Source { get; }
     internal string Path { get; }
     internal static string Value(XElement? e, string name) => e?.Element(C + name)?.Value ?? "";
-    internal static string Date(string s) => DateTime.TryParseExact(s, new[] { "yyyy-MM-dd", "yyyy-MM-ddzzz", "yyyy-MM-dd'Z'" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d.ToString("dd.MM.yyyy") : s;
-    // XML pouziva desatinnu bodku bez ohladu na Windows. Decimal predide binarnym odchylkam double;
-    // ide iba o formatovanie nahladu, necitatelnu hodnotu nechame viditelnu namiesto nahradenia nulou.
-    internal static string Money(string s) => decimal.TryParse(s, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var n) ? n.ToString("N2", CultureInfo.GetCultureInfo("sk-SK")) : s;
+    internal static string Date(string s)
+    {
+        // Datum faktury je kalendarny den, nie okamih na casovej osi. Pasmo nesmie posunut den.
+        if (!System.Text.RegularExpressions.Regex.IsMatch(s, @"^\d{4}-\d{2}-\d{2}(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))?$")) return s;
+        return DateOnly.TryParseExact(s[..10], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) ? day.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : s;
+    }
+    internal static string Money(string s)
+    {
+        // Cena za jednotku moze mat aj viac ako 28 desatinnych miest. Formatujeme zapis bez
+        // aritmetiky: zachovame kazdu cifru a nevnesieme zaokruhlenie ani limit typu decimal.
+        var match = System.Text.RegularExpressions.Regex.Match(s, @"^([+-]?)([0-9]+)(?:\.([0-9]+))?$");
+        if (!match.Success) return s;
+        var whole = match.Groups[2].Value.TrimStart('0'); if (whole.Length == 0) whole = "0";
+        whole = System.Text.RegularExpressions.Regex.Replace(whole, @"\B(?=(?:[0-9]{3})+(?![0-9]))", "\u00a0");
+        return match.Groups[1].Value + whole + "," + match.Groups[3].Value.PadRight(2, '0');
+    }
     internal static Invoice Load(string path, CancellationToken token)
     {
         // Cely nahlad vychadza z jednej nacitanej kopie bajtov. Zdroj neotvarame na zapis
@@ -65,17 +77,17 @@ internal sealed class Invoice
     Invoice(XDocument doc, byte[] bytes, string path)
     {
         Xml = doc; Source = bytes; Path = path;
-        if (doc.Root == null) throw new InvalidDataException("XML nema korenovy prvok.");
+        if (doc.Root == null) throw new InvalidDataException("XML nemá koreňový prvok.");
         // Za zakladnym profilom pripustame iba oddelovac #. Podobny zaciatok identifikatora
         // nestaci na rozpoznanie BIS; ani uspesne rozpoznanie vsak nie je validacia celeho dokladu.
         IsInvoice = (Root.Name == XName.Get("Invoice", "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2") || Root.Name == XName.Get("CreditNote", "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2")) &&
             (Value(Root, "CustomizationID") == Profile || Value(Root, "CustomizationID").StartsWith(Profile + "#", StringComparison.Ordinal));
         // Limit je ochrana desktopoveho nahladu, nie obmedzenie BIS. Nadlimitny doklad odmietneme cely,
         // pretoze tiche zobrazenie iba prvych 2000 poloziek by vyzeralo ako uplna faktura.
-        if (IsInvoice && Lines.Take(2001).Count() > 2000) throw new InvalidDataException("Faktura presahuje limit 2000 poloziek.");
+        if (IsInvoice && Lines.Take(2001).Count() > 2000) throw new InvalidDataException("Faktúra presahuje limit 2000 položiek.");
         Attachments = Root.Elements(A + "AdditionalDocumentReference").SelectMany(x => x.Elements(A + "Attachment")).SelectMany(x => x.Elements(C + "EmbeddedDocumentBinaryObject"))
             .Where(x => string.Equals((string?)x.Attribute("mimeCode"), "application/pdf", StringComparison.OrdinalIgnoreCase))
-            .Select((x, i) => new Attachment((string?)x.Attribute("filename") ?? $"Priloha {i + 1}.pdf", x)).ToList();
+            .Select((x, i) => new Attachment((string?)x.Attribute("filename") ?? $"Príloha {i + 1}.pdf", x)).ToList();
     }
     static readonly Lazy<Dictionary<string, (string Label, bool Date)>> Properties = new(() =>
     {

@@ -26,8 +26,9 @@ internal sealed class ViewerWindow : Window
     readonly TextBlock filename = new(), counter = new(), status = new(), pageCounter = new(), emptyTitle = new();
     readonly TextBlock badge = new() { FontSize = 10, FontWeight = FontWeights.Medium, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(8, 0, 8, 0) };
     readonly ComboBox sources = new() { Height = 34, Margin = new Thickness(8, 0, 8, 8), Visibility = Visibility.Collapsed };
-    readonly CheckBox embeddedSwitch = new() { Content = "Vlozene PDF", IsEnabled = false, Opacity = .4, Margin = new Thickness(16, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Zobrazit povodne PDF ulozene v XML" };
-    readonly Button fitHeightButton, fitWidthButton;
+    readonly CheckBox embeddedSwitch = new() { Content = "Vložené PDF", IsEnabled = false, Opacity = .4, Margin = new Thickness(16, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Zobraziť pôvodné PDF uložené v XML" };
+    readonly Button fitHeightButton, fitWidthButton, updateButton;
+    readonly TextBlock updateDot = new() { Text = "•", Margin = new Thickness(5, 0, 0, 0), Visibility = Visibility.Collapsed };
     readonly TreeView tree = new() { BorderThickness = new Thickness(0), Padding = new Thickness(12) };
     readonly StackPanel xmlPanel = new();
     readonly List<Button> buttons = new();
@@ -50,14 +51,25 @@ internal sealed class ViewerWindow : Window
     double scale = 1;
     readonly string? initialPath;
     UpdateOffer? update;
-    bool updating;
+    bool updating, renderPending;
+    Task? renderTask;
+    CancellationTokenSource? automaticCheck;
+    ContextMenu? activeMenu;
+    readonly Func<string, IEnumerable<string>> listDirectory;
+    readonly Func<CancellationToken, Task<UpdateOffer?>> updateChecker;
+    string directoryWarning = "";
     [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)] static extern int StrCmpLogicalW(string a, string b);
-    internal ViewerWindow(string? path)
+    internal ViewerWindow(string? path, Func<string, IEnumerable<string>>? listDirectory = null, Func<CancellationToken, Task<UpdateOffer?>>? updateChecker = null)
     {
+        this.listDirectory = listDirectory ?? Directory.EnumerateFiles; this.updateChecker = updateChecker ?? Updates.Check;
         initialPath = path; Title = "eFaktúra Viewer";
         Width = 680; Height = 960; MinWidth = 260; MinHeight = 360;
         WindowStartupLocation = WindowStartupLocation.Manual; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResize; AllowsTransparency = true; Background = Brushes.Transparent;
+        // Pri priehladnom okne bez systemoveho ramca samotne CanResize nevytvori uchopitelne hrany.
+        // Pas 20 bodov zahrna 12-bodovy tien a 8 bodov viditelneho okraja; titulok nadalej ovladame sami.
+        System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(20), GlassFrameThickness = new Thickness(0), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
         SourceInitialized += (_, _) => { VisualStyle.RoundedShell(this); WindowPlacement.Center(this); };
+        ContentRendered += (_, _) => WindowPlacement.Center(this);
         FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"); FontSize = 13;
         using (var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico")).Stream)
         { var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(stream, System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad); Icon = decoder.Frames[^1]; }
@@ -70,9 +82,10 @@ internal sealed class ViewerWindow : Window
         brand.Children.Add(new Image { Source = Icon, Width = 24, Height = 24 }); brand.Children.Add(logo);
         header.Children.Add(brand); Grid.SetColumn(headerTools, 1); header.Children.Add(headerTools);
         headerTools.Children.Add(Button("☼", "Prepnúť schému", ToggleTheme));
-        headerTools.Children.Add(Button("⟳", "Aktualizovať aplikáciu", () => _ = CheckUpdates(true)));
-        headerTools.Children.Add(Button("⋯", "Dalsie nastroje", () => { var m = Menu(); m.PlacementTarget = headerTools; m.Placement = PlacementMode.Bottom; m.IsOpen = true; }));
-        headerTools.Children.Add(Button("×", "Zavriet (Esc)", () => Close()));
+        updateButton = Button("⟳", "Aktualizovať aplikáciu", () => _ = CheckUpdates(true)); headerTools.Children.Add(updateButton);
+        ((StackPanel)updateButton.Content).Children.Add(updateDot);
+        headerTools.Children.Add(Button("⋯", "Ďalšie nástroje", () => { var m = Menu(); m.PlacementTarget = headerTools; m.Placement = PlacementMode.Bottom; m.IsOpen = true; }));
+        headerTools.Children.Add(Button("×", "Zavrieť (Esc)", () => Close()));
         Grid.SetRow(badge, 1); Grid.SetColumnSpan(badge, 2); header.Children.Add(badge); root.Children.Add(header);
         header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var viewing = new WrapPanel { Margin = new Thickness(5, 6, 5, 10) }; Grid.SetRow(viewing, 2); Grid.SetColumnSpan(viewing, 2); header.Children.Add(viewing);
@@ -93,9 +106,9 @@ internal sealed class ViewerWindow : Window
         var controls = new StackPanel(); dock.Child = controls;
         var info = new DockPanel(); counter.FontSize = 11; counter.Margin = new Thickness(10, 0, 0, 0); DockPanel.SetDock(counter, Dock.Right); info.Children.Add(counter); filename.TextTrimming = TextTrimming.CharacterEllipsis; filename.FontSize = 12; info.Children.Add(filename); controls.Children.Add(info);
         var bar = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 9, 0, 0) }; controls.Children.Add(bar);
-        bar.Children.Add(Button("‹", "Predosly subor (←)", () => Navigate(-1)));
-        bar.Children.Add(Button("›", "Dalsi subor (→)", () => Navigate(1)));
-        bar.Children.Add(Button("−", "Oddialit", () => Zoom(.85))); bar.Children.Add(Button("+", "Priblizit", () => Zoom(1.18)));
+        bar.Children.Add(Button("‹", "Predošlý súbor (←)", () => Navigate(-1)));
+        bar.Children.Add(Button("›", "Ďalší súbor (→)", () => Navigate(1)));
+        bar.Children.Add(Button("−", "Oddialiť", () => Zoom(.85))); bar.Children.Add(Button("+", "Priblížiť", () => Zoom(1.18)));
         pageCounter.FontSize = 10; pageCounter.HorizontalAlignment = HorizontalAlignment.Center; pageCounter.Margin = new Thickness(0, 7, 0, 0); controls.Children.Add(pageCounter);
         status.TextWrapping = TextWrapping.Wrap; status.FontSize = 11; status.Margin = new Thickness(8); status.HorizontalAlignment = HorizontalAlignment.Center; status.VerticalAlignment = VerticalAlignment.Bottom; status.IsHitTestVisible = false; stage.Children.Add(status);
         emptyTitle.FontSize = 22; emptyTitle.Margin = new Thickness(20); emptyTitle.TextWrapping = TextWrapping.Wrap;
@@ -110,7 +123,7 @@ internal sealed class ViewerWindow : Window
         PreviewKeyDown += (_, e) =>
         {
             // Sipky v otvorenom vybere a v XML strome patria danemu prvku, nie listovaniu fakturami.
-            if (sources.IsDropDownOpen || e.OriginalSource is TextBox) return;
+            if (activeMenu?.IsOpen == true || sources.IsDropDownOpen || e.OriginalSource is TextBox) return;
             if (e.Key == Key.Escape) { Close(); e.Handled = true; }
             else if (e.Key == Key.Left && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(-1); e.Handled = true; }
             else if (e.Key == Key.Right && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(1); e.Handled = true; }
@@ -120,7 +133,7 @@ internal sealed class ViewerWindow : Window
         };
         MouseRightButtonUp += (_, e) => { if (e.OriginalSource is not TextBox) { var menu = Menu(); menu.IsOpen = true; e.Handled = true; } };
         AllowDrop = true; Drop += async (_, e) => { if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0) await OpenPath(paths[0]); };
-        Closed += (_, _) => { closed = true; request.Cancel(); };
+        Closed += (_, _) => { closed = true; request.Cancel(); automaticCheck?.Cancel(); ClearPdf(); };
         Loaded += async (_, _) => { if (initialPath != null) await OpenPath(initialPath); else Welcome(); if (preferences.CheckUpdates) _ = CheckUpdates(false); };
         Theme();
     }
@@ -143,25 +156,32 @@ internal sealed class ViewerWindow : Window
         tree.Background = Brushes.Transparent; tree.Foreground = Foreground;
         UpdateFitButtons();
     }
-    void SaveSettings() { try { preferences.Save(); } catch (Exception e) { status.Text = "Nastavenia sa neulozili: " + e.Message; } }
+    void SaveSettings() { try { preferences.Save(); } catch (Exception e) { status.Text = "Nastavenia sa neuložili: " + e.Message; } }
     void Welcome()
     {
-        dock.Visibility = Visibility.Visible; filename.Text = "Otvorte XML alebo ho sem presunte"; status.Text = "Ctrl+O  •  Prave tlacidlo: nastroje";
-        ShowTree(null, "eFaktúra Viewer\nVase faktury. Prehladne, lokalne.");
+        dock.Visibility = Visibility.Visible; filename.Text = "Otvorte XML alebo ho sem presuňte"; status.Text = "Ctrl+O  •  Pravé tlačidlo: nástroje";
+        ShowTree(null, "eFaktúra Viewer\nVaše faktúry. Prehľadne, lokálne.");
     }
-    void OpenDialog() { var d = new OpenFileDialog { Filter = "XML subory|*.xml|Vsetky subory|*.*", InitialDirectory = preferences.LastDirectory }; if (d.ShowDialog(this) == true) _ = OpenPath(d.FileName); }
+    void OpenDialog() { var d = new OpenFileDialog { Filter = "XML súbory|*.xml|Všetky súbory|*.*", InitialDirectory = preferences.LastDirectory }; if (d.ShowDialog(this) == true) _ = OpenPath(d.FileName); }
     internal async Task OpenPath(string path)
     {
         // Zrusenie je kooperativne a nie kazda operacia ho podporuje. Sequence preto navyse
         // brani starsiemu vysledku, aby po await prepisal novsi dokument v tom istom okne.
         var id = ++sequence; request.Cancel(); request.Dispose(); request = new(); var token = request.Token;
-        currentPath = Path.GetFullPath(path); var loadPath = currentPath; invoice = null; ClearPdf(); tree.Items.Clear(); showingXml = false; badge.Text = "";
-        filename.Text = Path.GetFileName(path); Title = filename.Text + " — eFaktúra Viewer"; status.Text = "Nacitavam dokument…";
+        files.Clear(); counter.Text = ""; dock.Visibility = Visibility.Collapsed; directoryWarning = ""; currentPath = null; invoice = null; ClearPdf(); tree.Items.Clear(); showingXml = false; badge.Text = "";
+        filename.Text = Path.GetFileName(path); Title = filename.Text + " — eFaktúra Viewer"; status.Text = "Načítavam dokument…";
         sourceChanging = true; sources.Items.Clear(); embeddedSwitch.IsChecked = false; embeddedSwitch.IsEnabled = false; sources.Visibility = Visibility.Collapsed; sourceChanging = false;
         try
         {
+            currentPath = CanonicalPath(path); var loadPath = currentPath;
             var directory = Path.GetDirectoryName(currentPath)!;
-            var listing = await Task.Run(() => Directory.EnumerateFiles(directory).Where(p => string.Equals(Path.GetExtension(p), ".xml", StringComparison.OrdinalIgnoreCase)).ToList(), token);
+            List<string> listing;
+            try { listing = await Task.Run(() => listDirectory(directory).Where(p => string.Equals(Path.GetExtension(p), ".xml", StringComparison.OrdinalIgnoreCase)).Select(CanonicalPath).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), token); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Pravo precitat konkretne XML neznamena pravo vypisat obsah jeho priecinka.
+                listing = new(); if (id == sequence) directoryWarning = "Obsah priečinka sa nepodarilo načítať. Zobrazený je iba otvorený súbor.";
+            }
             token.ThrowIfCancellationRequested(); if (id != sequence) return;
             if (!listing.Contains(currentPath, StringComparer.OrdinalIgnoreCase)) listing.Add(currentPath);
             // Rovnako ako Prieskumnik radime faktura2 pred faktura10; obycajne textove radenie by ich prehodilo.
@@ -171,16 +191,16 @@ internal sealed class ViewerWindow : Window
             preferences.LastDirectory = directory; SaveSettings();
             var loaded = await Task.Run(() => Invoice.Load(loadPath, token), token);
             if (id != sequence || closed) return; invoice = loaded;
-            if (!loaded.IsInvoice) { ShowTree(loaded.Xml.Root, "Toto nie je eFaktúra."); status.Text = "XML struktura  •  Prave tlacidlo: nastroje a dalsi subor"; return; }
-            badge.Text = loaded.Extended ? "BIS3 · ROZSIRENY FMCG" : "BIS3 · ZAKLADNY";
+            if (!loaded.IsInvoice) { ShowTree(loaded.Xml.Root, "Toto nie je eFaktúra."); status.Text = directoryWarning.Length > 0 ? directoryWarning : "XML štruktúra  •  Pravé tlačidlo: nástroje a ďalší súbor"; return; }
+            badge.Text = loaded.Extended ? "BIS3 · ROZŠÍRENÝ FMCG" : "BIS3 · ZÁKLADNÝ";
             sourceChanging = true; foreach (var a in loaded.Attachments) sources.Items.Add(a.Name); sources.SelectedIndex = loaded.Attachments.Count > 0 ? 0 : -1; embeddedSwitch.IsEnabled = loaded.Attachments.Count > 0; sourceChanging = false;
             // PDF priloha nemusi zodpovedat XML ani byt fakturou. Pri novom subore vzdy zaciname generovanym nahladom.
             await SelectSource(0);
         }
         catch (OperationCanceledException) { }
-        catch (Exception e) { if (id == sequence && !closed) { ShowTree(null, "Subor sa nepodarilo otvorit."); status.Text = Readable(e); } }
+        catch (Exception e) { if (id == sequence && !closed) { ShowTree(null, "Súbor sa nepodarilo otvoriť."); status.Text = Readable(e); } }
     }
-    static string Readable(Exception e) => e is System.Xml.XmlException ? "XML nie je spravne zapisane alebo obsahuje nepovolene DTD. " + e.Message : e.Message;
+    static string Readable(Exception e) => e is System.Xml.XmlException ? "XML nie je správne zapísané alebo obsahuje nepovolené DTD. " + e.Message : e.Message;
     async Task SelectSource(int index)
     {
         // Nula znamena generovane PDF; prilohy su od jednotky. ComboBox obsahuje iba prilohy,
@@ -189,7 +209,7 @@ internal sealed class ViewerWindow : Window
         sourceChanging = true; embeddedSwitch.IsChecked = index > 0; if (index > 0) sources.SelectedIndex = index - 1;
         sources.Visibility = index > 0 && invoice.Attachments.Count > 1 ? Visibility.Visible : Visibility.Collapsed; sourceChanging = false;
         var doc = invoice; var id = ++sequence; request.Cancel(); request.Dispose(); request = new(); var token = request.Token;
-        ClearPdf(); status.Text = index == 0 ? "Vytvaram nahlad z XML…" : "Nacitavam vlozene PDF…";
+        ClearPdf(); status.Text = index == 0 ? "Vytváram náhľad z XML…" : "Načítavam vložené PDF…";
         try
         {
             byte[] bytes;
@@ -201,23 +221,28 @@ internal sealed class ViewerWindow : Window
             }
             else bytes = await Task.Run(() => doc.Attachments[index - 1].Read(), token);
             token.ThrowIfCancellationRequested();
+            if (id != sequence || closed) return;
+            // Aj PDF nad limitom nahladu zostane dostupne na export v plnom rozsahu.
+            pdfBytes = bytes;
+            badge.Text = (doc.Extended ? "BIS3 · ROZŠÍRENÝ FMCG" : "BIS3 · ZÁKLADNÝ") + (index == 0 ? "  /  Z XML" : "  /  VLOŽENÉ PDF");
             PdfView view;
             try { view = await PdfView.Open(bytes); }
-            catch (Exception ex) { throw new InvalidDataException("PDF nie je citatelne alebo je chranene heslom. Vyberte vygenerovane PDF. " + ex.Message, ex); }
+            catch (PdfPageLimitException) { throw; }
+            catch (Exception ex) { throw new InvalidDataException(index == 0 ? "Vygenerované PDF sa nepodarilo zobraziť. Údaje sú dostupné v XML strome. " + ex.Message : "Vložené PDF nie je čitateľné alebo je chránené heslom. Vypnite Vložené PDF pre návrat k náhľadu z XML. " + ex.Message, ex); }
             // Nacitanie PDF moze dobehnut aj po prepnuti dokladu. Nepouzity view musime aj uvolnit.
             if (id != sequence || closed) { view.Dispose(); return; }
             pdf = view; pdfBytes = bytes; showingXml = false; stage.Children[1].Visibility = Visibility.Collapsed; scroll.Visibility = Visibility.Visible;
-            badge.Text = (doc.Extended ? "BIS3 · ROZSIRENY FMCG" : "BIS3 · ZAKLADNY") + (index == 0 ? "  /  Z XML" : "  /  VLOZENE PDF");
+            badge.Text = (doc.Extended ? "BIS3 · ROZŠÍRENÝ FMCG" : "BIS3 · ZÁKLADNÝ") + (index == 0 ? "  /  Z XML" : "  /  VLOŽENÉ PDF");
             for (uint i = 0; i < pdf.Document.PageCount; i++)
             {
                 using var page = pdf.Document.GetPage(i); var image = new Image { Stretch = Stretch.Fill };
                 var frame = new Border { Background = Brushes.White, Margin = new Thickness(10, 8, 10, 12), Child = image, Tag = page.Size.Height / page.Size.Width, Effect = new DropShadowEffect { BlurRadius = 12, ShadowDepth = 2, Opacity = .17 } };
                 images.Add(image); paper.Add(frame); pages.Children.Add(frame);
             }
-            fitMode = FitMode.Height; scale = 1; LayoutPages(); scroll.ScrollToTop(); status.Text = ""; await RenderVisible();
+            fitMode = FitMode.Height; scale = 1; LayoutPages(); scroll.ScrollToTop(); status.Text = directoryWarning; await RenderVisible();
         }
         catch (OperationCanceledException) { }
-        catch (Exception e) { if (id == sequence && !closed) { ShowTree(null, "Nahlad nie je dostupny."); status.Text = Readable(e); } }
+        catch (Exception e) { if (id == sequence && !closed) { ShowTree(doc.Root, "Náhľad nie je dostupný."); status.Text = Readable(e); } }
     }
     void ClearPdf()
     {
@@ -250,30 +275,43 @@ internal sealed class ViewerWindow : Window
     // Rucny zoom nadvazuje na prave zobrazenu sirku, inak by prve kliknutie po fit-height sposobilo skok.
     // Zaklad 794 zodpoveda pribliznej sirke A4 pri 96 DPI a pouziva ho aj LayoutPages.
     void Zoom(double factor) { if (fitMode != FitMode.Manual && paper.Count > 0) scale = paper[0].Width / 794; fitMode = FitMode.Manual; scale = Math.Clamp(scale * factor, .1, 5); LayoutPages(); }
-    async Task RenderVisible()
+    Task RenderVisible()
     {
-        // Udalosti scrollu mozu chodit rychlejsie nez renderer. Nehromadime cakajuce vykreslovania;
-        // pocas prebiehajuceho priechodu dalsiu poziadavku vynechame.
-        if (closed || pdf == null || !await rendering.WaitAsync(0)) return;
+        if (closed || pdf == null) return Task.CompletedTask;
+        // Zlucujeme udalosti, ale posledna poziadavka sa nesmie stratit pocas cakania na renderer.
+        renderPending = true;
+        if (renderTask == null || renderTask.IsCompleted) renderTask = RenderLoop();
+        return renderTask;
+    }
+    async Task RenderLoop()
+    {
+        await rendering.WaitAsync();
         try
         {
-            var view = pdf; double top = 0; int current = 1;
-            for (int i = 0; i < paper.Count; i++)
+            while (renderPending && !closed && pdf != null)
             {
-                if (view != pdf || closed) return;
-                // Rezerva 300 bodov prednacita susedny obsah. Vzdialene bitmapy pustame z pamate,
-                // pretoze pri stovkach stran by ich uchovanie bolo drahsie nez samotne PDF.
-                var frame = paper[i]; var height = frame.Height + 20; var visible = top + height >= scroll.VerticalOffset - 300 && top <= scroll.VerticalOffset + scroll.ViewportHeight + 300;
-                if (top <= scroll.VerticalOffset + 30) current = i + 1;
-                var image = images[i];
-                if (visible && (image.Source == null || Math.Abs(image.Source.Width - Math.Min(1800, frame.Width * 1.5)) > 200))
-                { var bitmap = await view.Render((uint)i, (uint)Math.Clamp(frame.Width * 1.5, 400, 1800)); if (view != pdf || closed) return; image.Source = bitmap; }
-                else if (!visible) image.Source = null;
-                top += height;
+                renderPending = false;
+                var view = pdf; double top = 0; int current = 1;
+                for (int i = 0; i < paper.Count; i++)
+                {
+                    if (view != pdf || closed || renderPending) break;
+                    var frame = paper[i]; var height = frame.Height + 20;
+                    var visible = top + height >= scroll.VerticalOffset - 300 && top <= scroll.VerticalOffset + scroll.ViewportHeight + 300;
+                    if (top <= scroll.VerticalOffset + 30) current = i + 1;
+                    var image = images[i]; var width = (uint)Math.Clamp(frame.Width * 1.5, 400, 1800);
+                    if (visible && (image.Source == null || Math.Abs(image.Source.Width - width) > 200))
+                    {
+                        var bitmap = await view.Render((uint)i, width);
+                        if (view != pdf || closed) break;
+                        image.Source = bitmap;
+                    }
+                    else if (!visible) image.Source = null;
+                    top += height;
+                }
+                if (view == pdf) pageCounter.Text = $"Strana {current} / {paper.Count}   •   Ctrl + koliesko: zoom   •   Koliesko: posun";
             }
-            pageCounter.Text = $"Strana {current} / {paper.Count}   •   Ctrl + koliesko: zoom   •   Koliesko: posun";
         }
-        catch (Exception e) { if (!closed) status.Text = "Stranu PDF sa nepodarilo zobrazit: " + e.Message; }
+        catch (Exception e) { if (!closed) status.Text = "Stranu PDF sa nepodarilo zobraziť: " + e.Message; }
         finally { rendering.Release(); }
     }
     void ShowTree(XElement? element, string title)
@@ -296,27 +334,27 @@ internal sealed class ViewerWindow : Window
     void Navigate(int delta) { if (files.Count <= 1) return; var index = files.FindIndex(x => string.Equals(x, currentPath, StringComparison.OrdinalIgnoreCase)); _ = OpenPath(files[(index + delta + files.Count) % files.Count]); }
     ContextMenu Menu()
     {
-        var m = new ContextMenu { Background = dock.Background, Foreground = Foreground };
+        var m = new ContextMenu { Background = dock.Background, Foreground = Foreground }; activeMenu = m;
         void Item(string text, Action action, bool enabled = true) { var i = new MenuItem { Header = text, IsEnabled = enabled }; i.Click += (_, _) => action(); m.Items.Add(i); }
-        Item("Otvorit XML…   Ctrl+O", OpenDialog);
-        if (files.Count > 1) { Item("Predosly XML", () => Navigate(-1)); Item("Dalsi XML", () => Navigate(1)); Item(preferences.ReverseSort ? "Zoradit podla nazvu A → Z" : "Zoradit podla nazvu Z → A", () => { preferences.ReverseSort = !preferences.ReverseSort; SaveSettings(); if (currentPath != null) _ = OpenPath(currentPath); }); }
+        Item("Otvoriť XML…   Ctrl+O", OpenDialog);
+        if (files.Count > 1) { Item("Predošlý XML", () => Navigate(-1)); Item("Ďalší XML", () => Navigate(1)); Item(preferences.ReverseSort ? "Zoradiť podľa názvu A → Z" : "Zoradiť podľa názvu Z → A", () => { preferences.ReverseSort = !preferences.ReverseSort; SaveSettings(); if (currentPath != null) _ = OpenPath(currentPath); }); }
         m.Items.Add(new Separator());
         if (invoice?.IsInvoice == true)
         {
-            Item("Vygenerovane PDF", () => _ = SelectSource(0));
-            for (int i = 0; i < invoice.Attachments.Count; i++) { var index = i + 1; Item("Vlozene PDF: " + invoice.Attachments[i].Name, () => _ = SelectSource(index)); }
+            Item("Vygenerované PDF", () => _ = SelectSource(0));
+            for (int i = 0; i < invoice.Attachments.Count; i++) { var index = i + 1; Item("Vložené PDF: " + invoice.Attachments[i].Name, () => _ = SelectSource(index)); }
         }
-        Item("XML struktura", () => { if (invoice != null) ShowTree(invoice.Root, invoice.IsInvoice ? "Udaje XML" : "Toto nie je eFaktúra."); }, invoice != null);
-        Item("Ulozit zobrazene PDF…   Ctrl+S", SavePdf, pdfBytes != null);
-        Item("Tlacit…   Ctrl+P", () => _ = Print(), pdf != null);
-        Item("Prisposobit vyske", () => Fit(FitMode.Height));
-        Item("Prisposobit sirke", () => Fit(FitMode.Width));
-        Item(preferences.Light ? "Tmavy rezim" : "Svetly rezim", ToggleTheme);
+        Item("XML štruktúra", () => { if (invoice != null) ShowTree(invoice.Root, invoice.IsInvoice ? "Údaje XML" : "Toto nie je eFaktúra."); }, invoice != null);
+        Item("Uložiť zobrazené PDF…   Ctrl+S", SavePdf, pdfBytes != null);
+        Item("Tlačiť…   Ctrl+P", () => _ = Print(), pdf != null);
+        Item("Prispôsobiť výške", () => Fit(FitMode.Height));
+        Item("Prispôsobiť šírke", () => Fit(FitMode.Width));
+        Item(preferences.Light ? "Tmavý režim" : "Svetlý režim", ToggleTheme);
         m.Items.Add(new Separator());
-        Item(update == null ? "Aktualizovat" : "Nainstalovat " + update.Version, () => _ = CheckUpdates(true));
-        Item((preferences.CheckUpdates ? "✓ " : "") + "Kontrolovat aktualizacie pri starte", () => { preferences.CheckUpdates = !preferences.CheckUpdates; SaveSettings(); });
-        Item("Otvarat XML v tejto aplikacii…", Associations);
-        Item("O aplikacii", () => AppDialog.Info(this, "eFaktúra Viewer", "Verzia " + typeof(App).Assembly.GetName().Version!.ToString(3) + "\nLokalny prezerac BIS3 a FMCG.\nXML sa nikdy nemeni. Nahlad nie je BIS validacia.\n\nPDFsharp / MigraDoc 6.2.0 (MIT)\nPDF zobrazuje Windows.\nZdrojovy kod: github.com/enthilza/eFaktura-Viewer"));
+        Item(update == null ? "Aktualizovať" : "Nainštalovať " + update.Version, () => _ = CheckUpdates(true));
+        Item((preferences.CheckUpdates ? "✓ " : "") + "Kontrolovať aktualizácie pri štarte", () => { preferences.CheckUpdates = !preferences.CheckUpdates; SaveSettings(); });
+        Item("Otvárať XML v tejto aplikácii…", Associations);
+        Item("O aplikácii", () => AppDialog.Info(this, "eFaktúra Viewer", "Verzia " + typeof(App).Assembly.GetName().Version!.ToString(3) + "\nLokálny prezerač BIS3 a FMCG.\nXML sa nikdy nemení. Náhľad nepotvrdzuje súlad s BIS.\n\nPDFsharp / MigraDoc 6.2.0 (MIT)\nPDF zobrazuje Windows.\nZdrojový kód: github.com/enthilza/eFaktura-Viewer"));
         return m;
     }
     void SavePdf()
@@ -324,7 +362,7 @@ internal sealed class ViewerWindow : Window
         // Bajty zachytime pred modalnym dialogom. Export ma ulozit dokument, pre ktory ho pouzivatel otvoril.
         if (pdfBytes == null) return; var data = pdfBytes;
         var dialog = new SaveFileDialog { Filter = "PDF|*.pdf", FileName = Path.GetFileNameWithoutExtension(currentPath) + ".pdf", OverwritePrompt = true };
-        if (dialog.ShowDialog(this) == true) try { if (string.Equals(Path.GetFullPath(dialog.FileName), currentPath, StringComparison.OrdinalIgnoreCase)) throw new IOException("Zdrojovy XML sa nesmie prepisat."); File.WriteAllBytes(dialog.FileName, data); } catch (Exception e) { AppDialog.Info(this, "Ulozenie PDF", e.Message); }
+        if (dialog.ShowDialog(this) == true) try { if (string.Equals(Path.GetFullPath(dialog.FileName), currentPath, StringComparison.OrdinalIgnoreCase)) throw new IOException("Zdrojový XML sa nesmie prepísať."); File.WriteAllBytes(dialog.FileName, data); } catch (Exception e) { AppDialog.Info(this, "Uloženie PDF", e.Message); }
     }
     async Task Print()
     {
@@ -332,16 +370,9 @@ internal sealed class ViewerWindow : Window
         var dialog = new PrintDialog(); if (dialog.ShowDialog() != true) return;
         try
         {
-            using var view = await PdfView.Open(data); var document = new FixedDocument();
-            // Tlac drzi bitmapy vsetkych stran naraz. Limit chrani pamat; velky doklad sa da exportovat ako PDF.
-            if (view.Document.PageCount > 100) throw new InvalidDataException("Pri viac ako 100 stranach ulozte PDF a vytlacte ho v PDF aplikacii.");
-            status.Text = "Pripravujem tlac…";
-            for (uint i = 0; i < view.Document.PageCount; i++)
-            {
-                var image = new Image { Source = await view.Render(i, 1800), Width = dialog.PrintableAreaWidth, Height = dialog.PrintableAreaHeight, Stretch = Stretch.Uniform };
-                var page = new FixedPage { Width = dialog.PrintableAreaWidth, Height = dialog.PrintableAreaHeight }; page.Children.Add(image); var content = new PageContent { Child = page }; document.Pages.Add(content);
-            }
-            dialog.PrintDocument(document.DocumentPaginator, Title); status.Text = "";
+            using var view = await PdfView.Open(data);
+            status.Text = "Pripravujem tlač…";
+            dialog.PrintDocument(new PdfPrintPaginator(view, new Size(dialog.PrintableAreaWidth, dialog.PrintableAreaHeight)), Title); status.Text = "";
         }
         catch (Exception e) { status.Text = e.Message; }
     }
@@ -349,7 +380,7 @@ internal sealed class ViewerWindow : Window
     {
         // Registrujeme iba ponuku Otvorit v programe. Predvolbu .xml potvrdi pouzivatel vo Windows,
         // pretoze pripona patri aj konfiguraciam a inym dokumentom, nielen fakturam.
-        if (!AppDialog.Confirm(this, "Otvaranie XML", "Zaregistrovat eFaktura Viewer do ponuky Otvorit v programe pre XML? Predvolenu aplikaciu si potom vyberiete vo Windows.", "Zaregistrovat")) return;
+        if (!AppDialog.Confirm(this, "Otváranie XML", "Zaregistrovať eFaktúra Viewer do ponuky Otvoriť v programe pre XML? Predvolenú aplikáciu si potom vyberiete vo Windows.", "Zaregistrovať")) return;
         try
         {
             var exe = Environment.ProcessPath!;
@@ -359,29 +390,56 @@ internal sealed class ViewerWindow : Window
             using (var list = Registry.CurrentUser.CreateSubKey(@"Software\Classes\.xml\OpenWithList\eFakturaViewer.exe")) { }
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps") { UseShellExecute = true });
         }
-        catch (Exception e) { AppDialog.Info(this, "Otvaranie XML", e.Message); }
+        catch (Exception e) { AppDialog.Info(this, "Otváranie XML", e.Message); }
     }
-    async Task CheckUpdates(bool manual)
+    internal async Task CheckUpdates(bool manual)
     {
-        if (updating) return; updating = true;
+        if (!manual)
+        {
+            automaticCheck?.Cancel();
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15)); automaticCheck = cancellation;
+            try
+            {
+                var offer = await updateChecker(cancellation.Token);
+                if (!closed && !cancellation.IsCancellationRequested) { update = offer; UpdateIndicator(); }
+            }
+            catch (Exception) { /* Kontrola na pozadi neblokuje otvorenie lokalnej faktury. */ }
+            finally { if (automaticCheck == cancellation) automaticCheck = null; }
+            return;
+        }
+        if (updating) return;
+        updating = true; automaticCheck?.Cancel();
         try
         {
-            if (update == null)
-            {
-                if (manual) { if (!AppDialog.Work(this, "Aktualizacia aplikacie", "Vyhladavam novu verziu…", async (_, token) => update = await Updates.Check(token))) return; }
-                else update = await Updates.Check();
-            }
-            if (closed) return;
-            if (update == null) { if (manual) AppDialog.Info(this, "Vsetko je aktualne", "Mate aktualnu verziu eFaktura Viewer."); return; }
-            // Kontrola pri starte iba upozorni. Stahovanie a restart patria az k vedomemu potvrdeniu pouzivatela.
-            if (!manual) { status.Text = "Dostupna verzia " + update.Version + "  •  Prave tlacidlo → Aktualizovat"; return; }
-            if (!AppDialog.Confirm(this, "Nova verzia " + update.Version, "Stiahnut a nainstalovat aktualizaciu? Po overeni digitalneho podpisu sa aplikacia znova spusti s otvorenou fakturou.", "Aktualizovat")) return;
-            if (!AppDialog.Work(this, "Aktualizacia aplikacie", "Pripravujem stahovanie…", (progress, token) => Updates.Install(update, currentPath, progress, token))) return;
+            // Rucna kontrola ma vlastny viditelny priebeh a moznost zrusenia, aj ked siet pri starte visi.
+            if (update == null && !AppDialog.Work(this, "Aktualizácia aplikácie", "Vyhľadávam novú verziu…", async (_, token) => update = await updateChecker(token))) return;
+            if (closed) return; UpdateIndicator();
+            if (update == null) { AppDialog.Info(this, "Všetko je aktuálne", "Máte aktuálnu verziu eFaktúra Viewer."); return; }
+            if (!AppDialog.Confirm(this, "Nová verzia " + update.Version, "Stiahnuť a nainštalovať aktualizáciu? Po overení digitálneho podpisu sa aplikácia znova spustí s otvorenou faktúrou.", "Aktualizovať")) return;
+            if (!AppDialog.Work(this, "Aktualizácia aplikácie", "Pripravujem sťahovanie…", (progress, token) => Updates.Install(update, currentPath, progress, token))) return;
             Close();
         }
-        catch (Exception e) { if (manual) AppDialog.Info(this, "Aktualizacia nie je dostupna", e.Message); }
+        catch (Exception e) { if (!closed) AppDialog.Info(this, "Aktualizácia nie je dostupná", e.Message); }
         finally { updating = false; }
     }
+    void UpdateIndicator()
+    {
+        // Oznamenie patri k aktualizacii, nie k stavu nacitavania konkretneho dokumentu.
+        updateButton.ToolTip = update == null ? "Aktualizovať aplikáciu" : "Nainštalovať novú verziu " + update.Version;
+        updateButton.BorderThickness = new Thickness(update == null ? 1 : 2);
+        updateDot.Visibility = update == null ? Visibility.Collapsed : Visibility.Visible;
+    }
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern uint GetLongPathName(string path, System.Text.StringBuilder buffer, uint size);
+    internal static string CanonicalPath(string path)
+    {
+        var full = Path.GetFullPath(path); var buffer = new System.Text.StringBuilder(32768);
+        var length = GetLongPathName(full, buffer, (uint)buffer.Capacity);
+        return length > 0 && length < buffer.Capacity ? buffer.ToString() : full;
+    }
+    internal SemaphoreSlim RenderGateForTest => rendering;
+    internal bool FirstPageRendered => images.Count > 0 && images[0].Source != null;
+    internal string StatusForTest => status.Text;
+    internal bool UpdateAvailable => update != null && updateButton.ToolTip.ToString()!.Contains(update.Version);
     internal async Task Capture(string path, bool light)
     {
         preferences.Light = light; Theme(); UpdateLayout(); await rendering.WaitAsync(); rendering.Release(); await RenderVisible();

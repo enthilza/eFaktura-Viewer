@@ -5,6 +5,8 @@ using Windows.Storage.Streams;
 
 namespace eFakturaViewer;
 
+internal sealed class PdfPageLimitException(uint pages) : Exception($"PDF má {pages} strán. Náhľad podporuje najviac 1000 strán. Úplné PDF môžete uložiť cez ponuku Uložiť PDF; údaje zostávajú dostupné v strome XML.");
+
 internal sealed class PdfView : IDisposable
 {
     // Dokument si zo streamu docitava strany neskor. Stream preto zije rovnako dlho ako PdfView,
@@ -19,7 +21,8 @@ internal sealed class PdfView : IDisposable
         {
             using (var writer = new DataWriter(stream.GetOutputStreamAt(0))) { writer.WriteBytes(data); await writer.StoreAsync(); await writer.FlushAsync(); }
             var doc = await PdfDocument.LoadFromStreamAsync(stream, password);
-            if (doc.PageCount == 0 || doc.PageCount > 1000) throw new InvalidDataException("PDF musi mat 1 az 1000 stran.");
+            if (doc.PageCount == 0) throw new InvalidDataException("PDF neobsahuje žiadnu stranu.");
+            if (doc.PageCount > 1000) throw new PdfPageLimitException(doc.PageCount);
             return new PdfView(stream, doc);
         }
         catch { stream.Dispose(); throw; }

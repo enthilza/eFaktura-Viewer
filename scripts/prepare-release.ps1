@@ -26,6 +26,9 @@ else { [IO.File]::WriteAllText($taskPublic,$taskRsa.ToXmlString($false),[Text.UT
 if ($InitializeKey) { $taskRsa.Dispose(); Write-Host 'Kluc pripraveny. Sukromna cast je mimo projektu.'; exit 0 }
 $taskExe = Join-Path $taskRoot 'dist/eFakturaViewer.exe'
 $taskVersion = ([xml](Get-Content (Join-Path $taskRoot 'src/eFakturaViewer/eFakturaViewer.csproj'))).Project.PropertyGroup.Version
+# Stary build nesmie dostat podpis novsej verzie iba preto, ze uz bolo upravene csproj.
+$taskBinaryVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($taskExe).ProductVersion
+if (!$taskBinaryVersion -or $taskBinaryVersion.Split('+')[0] -ne $taskVersion) { throw 'Verzia hotoveho EXE nesuhlasi s projektom. Najprv vykonajte novy build.' }
 $taskStream = [IO.File]::OpenRead($taskExe)
 # Podpisujeme hotovy EXE. Akykolvek dalsi build po tomto kroku vyzaduje novy podpis.
 try { $taskSignature = [Convert]::ToBase64String($taskRsa.SignData($taskStream,[Security.Cryptography.SHA256]::Create())) } finally { $taskStream.Dispose() }

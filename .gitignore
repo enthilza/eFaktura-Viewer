@@ -8,6 +8,7 @@ examples/z_povodneho_projektu/
 .build/
 test-results/
 .review-temp/
+review.md
 reference/
 specifikacia/
 docs/

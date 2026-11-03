@@ -22,7 +22,7 @@ internal sealed class AppDialog : Window
         shell.SetResourceReference(Border.BackgroundProperty, "Panel"); shell.SetResourceReference(Border.BorderBrushProperty, "Border"); Content = shell;
         var top = new Grid { Background = Brushes.Transparent, Margin = new Thickness(0, 0, 0, 15) };
         top.Children.Add(new TextBlock { Text = title, FontSize = 22, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 30, 0) });
-        var close = VisualStyle.Button("close", "", "Zavriet", Close); close.HorizontalAlignment = HorizontalAlignment.Right; close.VerticalAlignment = VerticalAlignment.Top; close.Padding = new Thickness(6); close.MinHeight = 28; top.Children.Add(close);
+        var close = VisualStyle.Button("close", "", "Zavrieť", Close); close.HorizontalAlignment = HorizontalAlignment.Right; close.VerticalAlignment = VerticalAlignment.Top; close.Padding = new Thickness(6); close.MinHeight = 28; top.Children.Add(close);
         top.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         body.Children.Add(top);
         message = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap, LineHeight = 21 }; message.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); body.Children.Add(message);
@@ -30,17 +30,17 @@ internal sealed class AppDialog : Window
         SourceInitialized += (_, _) => VisualStyle.RoundedShell(this);
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { e.Handled = true; Close(); } };
     }
-    internal static bool Confirm(Window owner, string title, string message, string accept = "Pokracovat")
+    internal static bool Confirm(Window owner, string title, string message, string accept = "Pokračovať")
     {
         var window = new AppDialog(owner, title, message);
-        var cancel = VisualStyle.Button("", "Zrusit", "Zrusit", () => window.DialogResult = false); cancel.IsCancel = true;
+        var cancel = VisualStyle.Button("", "Zrušiť", "Zrušiť", () => window.DialogResult = false); cancel.IsCancel = true;
         var ok = VisualStyle.Button("", accept, accept, () => window.DialogResult = true); ok.IsDefault = true;
         ok.SetResourceReference(Button.BackgroundProperty, "Accent"); ok.SetResourceReference(Button.ForegroundProperty, "AccentText");
         window.footer.Children.Add(cancel); window.footer.Children.Add(ok); return window.ShowDialog() == true;
     }
     internal static void Info(Window owner, string title, string message)
     {
-        var window = new AppDialog(owner, title, message); var ok = VisualStyle.Button("", "Rozumiem", "Zavriet", window.Close); ok.IsDefault = true; window.footer.Children.Add(ok); window.ShowDialog();
+        var window = new AppDialog(owner, title, message); var ok = VisualStyle.Button("", "Rozumiem", "Zavrieť", window.Close); ok.IsDefault = true; window.footer.Children.Add(ok); window.ShowDialog();
     }
     internal static bool Work(Window owner, string title, string text, Func<IProgress<int>, CancellationToken, Task> operation)
     {
@@ -48,17 +48,17 @@ internal sealed class AppDialog : Window
         var window = new AppDialog(owner, title, text); bool finished = false, cancelled = false; Exception? error = null;
         var bar = new ProgressBar { Height = 5, Minimum = 0, Maximum = 100, IsIndeterminate = true, Margin = new Thickness(0, 18, 0, 0), BorderThickness = new Thickness(0) };
         bar.SetResourceReference(ProgressBar.ForegroundProperty, "Accent"); bar.SetResourceReference(ProgressBar.BackgroundProperty, "Input"); window.body.Children.Insert(2, bar);
-        var cancel = VisualStyle.Button("", "Zrusit", "Zrusit", () => { cancellation.Cancel(); }); window.footer.Children.Add(cancel);
+        var cancel = VisualStyle.Button("", "Zrušiť", "Zrušiť", () => { cancellation.Cancel(); }); window.footer.Children.Add(cancel);
         // Krizik ani Escape nesmu vratit riadenie volajucemu, kym operacia este pracuje.
         // Najprv poziadame o zrusenie a dialog zavrieme az po jej dobehnuti a uvolneni suborov.
-        window.Closing += (_, e) => { if (!finished) { e.Cancel = true; cancellation.Cancel(); cancel.IsEnabled = false; window.message.Text = "Ukoncujem operaciu…"; } };
+        window.Closing += (_, e) => { if (!finished) { e.Cancel = true; cancellation.Cancel(); cancel.IsEnabled = false; window.message.Text = "Ukončujem operáciu…"; } };
         window.Loaded += async (_, _) =>
         {
             try
             {
                 // Progress vznikne na UI vlakne a vracia sem aktualizacie z Task.Run.
                 // Priznak finished ignoruje oneskorene hlasenia po ukonceni operacie.
-                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = p >= 100 ? "Overujem digitalny podpis…" : $"Stahujem aktualizaciu · {p} %"; } });
+                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = p >= 100 ? "Overujem digitálny podpis…" : $"Sťahujem aktualizáciu · {p} %"; } });
                 await Task.Run(() => operation(progress, cancellation.Token));
             }
             catch (OperationCanceledException) { cancelled = true; }
@@ -69,7 +69,7 @@ internal sealed class AppDialog : Window
     }
     internal static AppDialog Preview(Window owner)
     {
-        var window = new AppDialog(owner, "Aktualizacia aplikacie", "Mate aktualnu verziu eFaktura Viewer.\nKontrola aktualizacii bola dokoncena.");
-        window.footer.Children.Add(VisualStyle.Button("", "Rozumiem", "Zavriet", window.Close)); return window;
+        var window = new AppDialog(owner, "Aktualizácia aplikácie", "Máte aktuálnu verziu eFaktúra Viewer.\nKontrola aktualizácií bola dokončená.");
+        window.footer.Children.Add(VisualStyle.Button("", "Rozumiem", "Zavrieť", window.Close)); return window;
     }
 }
