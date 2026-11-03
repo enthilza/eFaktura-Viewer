@@ -130,7 +130,7 @@ internal sealed class ViewerWindow : Window
     {
         var light = preferences.Light; VisualStyle.Apply(light); Foreground = VisualStyle.Brush("Text");
         // Krytie iba pozadia: text, tlacidla a samotny dokument zostavaju ostre a citatelne.
-        shell.Background = B(light ? "#E6F5F5F5" : "#E6191919"); dock.Background = B(light ? "#F7F7F7" : "#292929");
+        shell.Background = B(light ? "#F2F5F5F5" : "#F2191919"); dock.Background = B(light ? "#F7F7F7" : "#292929");
         shell.BorderBrush = B(light ? "#55FFFFFF" : "#55777777"); shell.BorderThickness = new Thickness(1);
         logo.Foreground = Foreground; status.Foreground = Foreground; status.Background = dock.Background;
         counter.Foreground = B(light ? "#626262" : "#BEBEBE"); pageCounter.Foreground = counter.Foreground; badge.Foreground = counter.Foreground;

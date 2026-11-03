@@ -18,7 +18,7 @@ internal static class WindowPlacement
     internal static Rect LastInitialBounds { get; private set; }
     internal static Rect Calculate(Rect screen)
     {
-        var height = Math.Min(screen.Height * .95, screen.Width * .95 * 297 / 210);
+        var height = Math.Min(screen.Height * .97, screen.Width * .97 * 297 / 210);
         var width = height * 210 / 297;
         return new Rect(screen.Left + (screen.Width - width) / 2, screen.Top + (screen.Height - height) / 2, width, height);
     }

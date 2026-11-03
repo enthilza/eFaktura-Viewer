@@ -83,7 +83,7 @@ internal static class SelfTest
         foreach (var screen in new[] { new Rect(0, 0, 1920, 1080), new Rect(-2560, -200, 2560, 1440), new Rect(1920, 0, 3840, 2160) })
         {
             var bounds = WindowPlacement.Calculate(screen);
-            Check(Math.Abs(bounds.Height - screen.Height * .95) < .01 && Math.Abs(bounds.Width / bounds.Height - 210.0 / 297) < .0001 && Math.Abs(bounds.X + bounds.Width / 2 - (screen.X + screen.Width / 2)) < .01 && Math.Abs(bounds.Y + bounds.Height / 2 - (screen.Y + screen.Height / 2)) < .01, "A4 a 95 % vysky, centrovanie monitora " + screen);
+            Check(Math.Abs(bounds.Height - screen.Height * .97) < .01 && Math.Abs(bounds.Width / bounds.Height - 210.0 / 297) < .0001 && Math.Abs(bounds.X + bounds.Width / 2 - (screen.X + screen.Width / 2)) < .01 && Math.Abs(bounds.Y + bounds.Height / 2 - (screen.Y + screen.Height / 2)) < .01, "A4 a 97 % vysky, centrovanie monitora " + screen);
         }
         var expected = WindowPlacement.LastInitialBounds;
         Check(WindowPlacement.GetWindowRect(new System.Windows.Interop.WindowInteropHelper(window).Handle, out var actual) && Math.Abs(actual.Left - expected.Left) <= 2 && Math.Abs(actual.Top - expected.Top) <= 2 && Math.Abs((actual.Right - actual.Left) - expected.Width) <= 2 && Math.Abs((actual.Bottom - actual.Top) - expected.Height) <= 2, "Skutocne otvorene okno ma pozadovanu polohu a rozmery");
@@ -108,8 +108,8 @@ internal static class SelfTest
             Check(PageInkVisible(Path.Combine(output, "viewer-light.png")), "Po prepnuti temy je faktura viditelna aj vo vykreslenom okne");
             dialog = AppDialog.Preview(window); dialog.Show(); dialog.UpdateLayout(); SaveWindow(dialog, Path.Combine(output, "dialog-light.png")); dialog.Close();
         }
-        window.SetThemeForTest(false); Check(window.BackgroundAlpha is >= 228 and <= 231, "Tmave pozadie ma priblizne 90 % krytie");
-        window.SetThemeForTest(true); Check(window.BackgroundAlpha is >= 228 and <= 231, "Svetle pozadie ma priblizne 90 % krytie");
+        window.SetThemeForTest(false); Check(window.BackgroundAlpha is >= 241 and <= 243, "Tmave pozadie ma priblizne 95 % krytie");
+        window.SetThemeForTest(true); Check(window.BackgroundAlpha is >= 241 and <= 243, "Svetle pozadie ma priblizne 95 % krytie");
         await window.OpenPath(Path.Combine(examples, "03_s_pdf.xml")); Check(window.ProfileBadge.EndsWith("Z XML") && window.HasPdf, "Predvoleny nahlad je generovany aj pri prilohe");
         await window.TestSelectSource(1); Check(window.ProfileBadge.EndsWith("VLOZENE PDF") && window.HasPdf, "Prepinanie na vlozene PDF");
         Check(window.EmbeddedSwitchChecked && !window.AttachmentPickerVisible, "Jedina priloha pouziva prepinac bez zbytocneho zoznamu");

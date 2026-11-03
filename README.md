@@ -1,6 +1,6 @@
 # eFaktúra Viewer
 
-Samostatny prezerac elektronickych faktur **Peppol BIS Billing 3.0** pre Windows 10 (2004+) / Windows 11 x64. C# / WPF, svetla a tmava tema v odtienoch sivej. Dizajn podla aplikacie Luma: Segoe UI Variable, zaoblene okna a ovladacie prvky, jemne obrysy a priehladne pozadie s priblizne 90 % krytim. Papier faktury zostava nepriehladny.
+Samostatny prezerac elektronickych faktur **Peppol BIS Billing 3.0** pre Windows 10 (2004+) / Windows 11 x64. C# / WPF, svetla a tmava tema v odtienoch sivej. Predvolena je svetla schema; vlastny vyber temy sa zapamata. Dizajn podla aplikacie Luma: Segoe UI Variable, zaoblene okna a ovladacie prvky, jemne obrysy a priehladne pozadie s priblizne 95 % krytim. Papier faktury zostava nepriehladny.
 
 **[Stiahnut eFakturaViewer.exe](https://github.com/enthilza/eFaktura-Viewer/releases/latest/download/eFakturaViewer.exe)** · [Vydania](https://github.com/enthilza/eFaktura-Viewer/releases)
 
@@ -17,7 +17,7 @@ eFakturaViewer.exe "C:\Faktury\faktura.xml"
 - **Sipky vlavo/vpravo** prechadzaju XML v rovnakom priecinku, prirodzene zoradene podla nazvu. Na konci sa pokracuje od zaciatku. Poradie mozno obratit v ponuke.
 - Pri **jedinom XML** sa spodny panel skryje. Horne ovladanie prisposobenia vyske/sirke, temy, aktualizacie a priloh zostava dostupne.
 - **Koliesko** posuva strany, **Ctrl + koliesko** meni priblizenie. Horne tlacidla **Prisposobit vyske** a **Prisposobit sirke** prepnu sposob zobrazenia.
-- Kazde nove okno sa vycentruje na monitore pod kurzorom, ma 95 % vysky obrazovky a pomer stran A4. Na velmi uzkom monitore sa zmensi, aby sa cele zmestilo. Okno mozno presuvat za celu volnu plochu zahlavia.
+- Kazde nove okno sa vycentruje na monitore pod kurzorom, ma 97 % vysky obrazovky a pomer stran A4. Na velmi uzkom monitore sa zmensi, aby sa cele zmestilo. Okno mozno presuvat za celu volnu plochu zahlavia.
 - **Ctrl+S** ulozi zobrazene PDF, **Ctrl+P** otvori tlac, **Esc** zavrie aplikaciu.
 - Horne tlacidla **Prepnut schemu** a **Aktualizovat aplikaciu** prepinaju temu a kontroluju aktualizacie. Dalsie funkcie su pod ⋯ a v kontextovej ponuke. Vlastne oznamy, potvrdenia a priebeh aktualizacie pouzivaju rovnaky zaobleny dizajn; systemovy vyber suboru a tlaciarne zabezpecuje Windows.
 - Pri inom XML sa zobrazi **„Toto nie je eFaktúra.“** a rozbalovaci strom prvkov a atributov. Sipky v aktivnom strome ovladaju strom; na dalsi subor pouzite spodne tlacidla alebo kontextovu ponuku.
@@ -71,7 +71,7 @@ Prevadzkove limity prvej verzie: XML 30 MB, 2000 poloziek, PDF 1000 stran. Heslo
 
 ## Overenie
 
-Verzia 1.0.1 presla 59 kontrolami bez preskocenia. Kontroly overuju zakladny BIS, FMCG, dobropis, nemenene vstupy, namespace prefixy, DTD/XXE vratane UTF-16, poskodene XML/PDF/base64, viac priloh, predvoleny generovany nahlad, 2000 poloziek, dlhy text, podpisy a rychle listovanie. Overuju aj skutocne rozmery otvoreneho okna, prisposobenie vyske/sirke, vykreslenie oboch tem, modalne okna, priehladnu ikonu a dostupnost hornych nastrojov pri jedinom XML.
+Verzia 1.0.2 presla 59 kontrolami bez preskocenia. Kontroly overuju zakladny BIS, FMCG, dobropis, nemenene vstupy, namespace prefixy, DTD/XXE vratane UTF-16, poskodene XML/PDF/base64, viac priloh, predvoleny generovany nahlad, 2000 poloziek, dlhy text, podpisy a rychle listovanie. Overuju aj skutocne rozmery otvoreneho okna, prisposobenie vyske/sirke, vykreslenie oboch tem, modalne okna, priehladnu ikonu a dostupnost hornych nastrojov pri jedinom XML.
 
 V odpojenej relacii Windows nemoze WPF vykreslit ani nezavislu graficku sondu. Vizualne kontroly okna su vtedy oznacene ako **preskocene**, nie uspesne. PDF je mozne vykreslit a overit nezavisle. Rucne overenie fyzickej tlaciarne, roznych DPI/monitorov a vypadkov konkretneho sietoveho disku zostava na cielovom PC.
 

@@ -7,7 +7,7 @@ namespace eFakturaViewer;
 internal sealed class Preferences
 {
     internal static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eFakturaViewer");
-    public bool Light { get; set; }
+    public bool Light { get; set; } = true;
     public bool CheckUpdates { get; set; } = true;
     public bool ReverseSort { get; set; }
     public string LastDirectory { get; set; } = "";
