@@ -1,7 +1,12 @@
-# eFaktura Viewer 1.0.2
+# eFaktura Viewer 1.0.3
 
-- Svetla schema je predvolena pri prvom spusteni. Uz ulozena volba temy zostava zachovana.
-- Predvolena vyska okna je 97 % obrazovky, s centrovanim a pomerom stran A4.
-- Pozadie ma 95 % krytie, teda iba priblizne 5 % priehladnost, v oboch schemach.
+Dokumentacne vydanie: slovenske komentare vysvetluju dovody rieseni na zlozitejsich miestach kodu.
 
-Aktualizujte cez tlacidlo Aktualizovat aplikaciu alebo stiahnite eFakturaViewer.exe.
+- XML namespaces, bezpecne nacitanie, FMCG doplnky a zachovanie povodnych hodnot.
+- Zakladne mnozstvo ceny, sumy dodavatela a strankovanie dlheho obsahu PDF.
+- Rusenie nacitavania, oneskorene vysledky, zivotnost PDF a vykreslovanie viditelnych stran.
+- DPI, rozmery okna, temy, modalne dialogy a ulozene predvolby.
+- Overenie podpisov, vymena EXE, obnova zalohy a hranice startovacej sondy.
+- Dovody testovacich scenarov, zostavenie, podpisovanie a upratovanie docasnych suborov.
+
+Funkcne spravanie aplikacie zostava rovnake ako vo verzii 1.0.2. Okrem komentarov sa zmenilo iba cislo verzie a dokumentacia vydania.

@@ -31,7 +31,9 @@ internal sealed class ViewerWindow : Window
     readonly TreeView tree = new() { BorderThickness = new Thickness(0), Padding = new Thickness(12) };
     readonly StackPanel xmlPanel = new();
     readonly List<Button> buttons = new();
+    // Vykreslovanie a uvolnenie PDF zdielaju zamok, aby stream nezanikol pocas asynchronneho citania strany.
     readonly SemaphoreSlim rendering = new(1, 1);
+    // Narocne generovanie radime za seba aj medzi oknami, aby pri rychlom listovani nerastla spotreba pamate.
     static readonly SemaphoreSlim generation = new(1, 1);
     readonly List<Image> images = new();
     readonly List<Border> paper = new();
@@ -97,6 +99,8 @@ internal sealed class ViewerWindow : Window
         pageCounter.FontSize = 10; pageCounter.HorizontalAlignment = HorizontalAlignment.Center; pageCounter.Margin = new Thickness(0, 7, 0, 0); controls.Children.Add(pageCounter);
         status.TextWrapping = TextWrapping.Wrap; status.FontSize = 11; status.Margin = new Thickness(8); status.HorizontalAlignment = HorizontalAlignment.Center; status.VerticalAlignment = VerticalAlignment.Bottom; status.IsHitTestVisible = false; stage.Children.Add(status);
         emptyTitle.FontSize = 22; emptyTitle.Margin = new Thickness(20); emptyTitle.TextWrapping = TextWrapping.Wrap;
+        // Programove nastavenie zoznamu tiez vyvola SelectionChanged. Bez sourceChanging by
+        // synchronizacia prepinaca a zoznamu spustala dalsie nacitanie tej istej prilohy.
         sources.SelectionChanged += async (_, _) => { if (!sourceChanging && invoice != null && embeddedSwitch.IsChecked == true) await SelectSource(sources.SelectedIndex + 1); };
         embeddedSwitch.Click += async (_, _) => { if (!sourceChanging && invoice != null) await SelectSource(embeddedSwitch.IsChecked == true ? Math.Max(0, sources.SelectedIndex) + 1 : 0); };
         embeddedSwitch.IsEnabledChanged += (_, _) => embeddedSwitch.Opacity = embeddedSwitch.IsEnabled ? 1 : .4;
@@ -105,6 +109,7 @@ internal sealed class ViewerWindow : Window
         PreviewMouseWheel += (_, e) => { if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { Zoom(e.Delta > 0 ? 1.15 : .87); e.Handled = true; } };
         PreviewKeyDown += (_, e) =>
         {
+            // Sipky v otvorenom vybere a v XML strome patria danemu prvku, nie listovaniu fakturami.
             if (sources.IsDropDownOpen || e.OriginalSource is TextBox) return;
             if (e.Key == Key.Escape) { Close(); e.Handled = true; }
             else if (e.Key == Key.Left && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(-1); e.Handled = true; }
@@ -129,7 +134,8 @@ internal sealed class ViewerWindow : Window
     void Theme()
     {
         var light = preferences.Light; VisualStyle.Apply(light); Foreground = VisualStyle.Brush("Text");
-        // Krytie iba pozadia: text, tlacidla a samotny dokument zostavaju ostre a citatelne.
+        // F2 znamena priblizne 95 % krytie, teda iba 5 % priehladnost. Nenastavovat Window.Opacity:
+        // zoslablo by aj pismo a biely papier, nie iba pozadie okolo dokumentu.
         shell.Background = B(light ? "#F2F5F5F5" : "#F2191919"); dock.Background = B(light ? "#F7F7F7" : "#292929");
         shell.BorderBrush = B(light ? "#55FFFFFF" : "#55777777"); shell.BorderThickness = new Thickness(1);
         logo.Foreground = Foreground; status.Foreground = Foreground; status.Background = dock.Background;
@@ -146,6 +152,8 @@ internal sealed class ViewerWindow : Window
     void OpenDialog() { var d = new OpenFileDialog { Filter = "XML subory|*.xml|Vsetky subory|*.*", InitialDirectory = preferences.LastDirectory }; if (d.ShowDialog(this) == true) _ = OpenPath(d.FileName); }
     internal async Task OpenPath(string path)
     {
+        // Zrusenie je kooperativne a nie kazda operacia ho podporuje. Sequence preto navyse
+        // brani starsiemu vysledku, aby po await prepisal novsi dokument v tom istom okne.
         var id = ++sequence; request.Cancel(); request.Dispose(); request = new(); var token = request.Token;
         currentPath = Path.GetFullPath(path); var loadPath = currentPath; invoice = null; ClearPdf(); tree.Items.Clear(); showingXml = false; badge.Text = "";
         filename.Text = Path.GetFileName(path); Title = filename.Text + " — eFaktúra Viewer"; status.Text = "Nacitavam dokument…";
@@ -156,6 +164,7 @@ internal sealed class ViewerWindow : Window
             var listing = await Task.Run(() => Directory.EnumerateFiles(directory).Where(p => string.Equals(Path.GetExtension(p), ".xml", StringComparison.OrdinalIgnoreCase)).ToList(), token);
             token.ThrowIfCancellationRequested(); if (id != sequence) return;
             if (!listing.Contains(currentPath, StringComparer.OrdinalIgnoreCase)) listing.Add(currentPath);
+            // Rovnako ako Prieskumnik radime faktura2 pred faktura10; obycajne textove radenie by ich prehodilo.
             listing.Sort((a, b) => StrCmpLogicalW(Path.GetFileName(a), Path.GetFileName(b)) * (preferences.ReverseSort ? -1 : 1)); files = listing;
             dock.Visibility = files.Count <= 1 ? Visibility.Collapsed : Visibility.Visible;
             counter.Text = $"{files.FindIndex(x => string.Equals(x, currentPath, StringComparison.OrdinalIgnoreCase)) + 1} / {files.Count}";
@@ -165,6 +174,7 @@ internal sealed class ViewerWindow : Window
             if (!loaded.IsInvoice) { ShowTree(loaded.Xml.Root, "Toto nie je eFaktúra."); status.Text = "XML struktura  •  Prave tlacidlo: nastroje a dalsi subor"; return; }
             badge.Text = loaded.Extended ? "BIS3 · ROZSIRENY FMCG" : "BIS3 · ZAKLADNY";
             sourceChanging = true; foreach (var a in loaded.Attachments) sources.Items.Add(a.Name); sources.SelectedIndex = loaded.Attachments.Count > 0 ? 0 : -1; embeddedSwitch.IsEnabled = loaded.Attachments.Count > 0; sourceChanging = false;
+            // PDF priloha nemusi zodpovedat XML ani byt fakturou. Pri novom subore vzdy zaciname generovanym nahladom.
             await SelectSource(0);
         }
         catch (OperationCanceledException) { }
@@ -173,6 +183,8 @@ internal sealed class ViewerWindow : Window
     static string Readable(Exception e) => e is System.Xml.XmlException ? "XML nie je spravne zapisane alebo obsahuje nepovolene DTD. " + e.Message : e.Message;
     async Task SelectSource(int index)
     {
+        // Nula znamena generovane PDF; prilohy su od jednotky. ComboBox obsahuje iba prilohy,
+        // preto jeho index musime posunut o jeden na oboch miestach synchronizacie.
         if (invoice == null || index < 0) return;
         sourceChanging = true; embeddedSwitch.IsChecked = index > 0; if (index > 0) sources.SelectedIndex = index - 1;
         sources.Visibility = index > 0 && invoice.Attachments.Count > 1 ? Visibility.Visible : Visibility.Collapsed; sourceChanging = false;
@@ -192,6 +204,7 @@ internal sealed class ViewerWindow : Window
             PdfView view;
             try { view = await PdfView.Open(bytes); }
             catch (Exception ex) { throw new InvalidDataException("PDF nie je citatelne alebo je chranene heslom. Vyberte vygenerovane PDF. " + ex.Message, ex); }
+            // Nacitanie PDF moze dobehnut aj po prepnuti dokladu. Nepouzity view musime aj uvolnit.
             if (id != sequence || closed) { view.Dispose(); return; }
             pdf = view; pdfBytes = bytes; showingXml = false; stage.Children[1].Visibility = Visibility.Collapsed; scroll.Visibility = Visibility.Visible;
             badge.Text = (doc.Extended ? "BIS3 · ROZSIRENY FMCG" : "BIS3 · ZAKLADNY") + (index == 0 ? "  /  Z XML" : "  /  VLOZENE PDF");
@@ -219,6 +232,8 @@ internal sealed class ViewerWindow : Window
         {
             var ratio = (double)p.Tag;
             var availableWidth = Math.Max(80, scroll.ActualWidth - 38);
+            // Fit-height zaroven respektuje sirku okna. Pri sirokej strane by samotny vypocet
+            // z vysky odrezal boky; pomer berieme zo skutocnej strany, lebo priloha nemusi byt A4.
             var width = fitMode switch { FitMode.Width => availableWidth, FitMode.Height => Math.Min(availableWidth, Math.Max(80, scroll.ActualHeight - 24) / ratio), _ => 794 * scale };
             p.Width = Math.Clamp(width, 60, 5000); p.Height = p.Width * ratio;
         }
@@ -232,9 +247,13 @@ internal sealed class ViewerWindow : Window
         fitHeightButton.Background = VisualStyle.Brush(fitMode == FitMode.Height ? "Selected" : "ButtonBackground");
         fitWidthButton.Background = VisualStyle.Brush(fitMode == FitMode.Width ? "Selected" : "ButtonBackground");
     }
+    // Rucny zoom nadvazuje na prave zobrazenu sirku, inak by prve kliknutie po fit-height sposobilo skok.
+    // Zaklad 794 zodpoveda pribliznej sirke A4 pri 96 DPI a pouziva ho aj LayoutPages.
     void Zoom(double factor) { if (fitMode != FitMode.Manual && paper.Count > 0) scale = paper[0].Width / 794; fitMode = FitMode.Manual; scale = Math.Clamp(scale * factor, .1, 5); LayoutPages(); }
     async Task RenderVisible()
     {
+        // Udalosti scrollu mozu chodit rychlejsie nez renderer. Nehromadime cakajuce vykreslovania;
+        // pocas prebiehajuceho priechodu dalsiu poziadavku vynechame.
         if (closed || pdf == null || !await rendering.WaitAsync(0)) return;
         try
         {
@@ -242,6 +261,8 @@ internal sealed class ViewerWindow : Window
             for (int i = 0; i < paper.Count; i++)
             {
                 if (view != pdf || closed) return;
+                // Rezerva 300 bodov prednacita susedny obsah. Vzdialene bitmapy pustame z pamate,
+                // pretoze pri stovkach stran by ich uchovanie bolo drahsie nez samotne PDF.
                 var frame = paper[i]; var height = frame.Height + 20; var visible = top + height >= scroll.VerticalOffset - 300 && top <= scroll.VerticalOffset + scroll.ViewportHeight + 300;
                 if (top <= scroll.VerticalOffset + 30) current = i + 1;
                 var image = images[i];
@@ -262,6 +283,8 @@ internal sealed class ViewerWindow : Window
     }
     static TreeViewItem Node(XElement e)
     {
+        // Potomkov vytvarame az pri rozbaleni. Velke XML tak nevytvori tisice WPF prvkov naraz.
+        // Skrateny text v hlavicke je iba nahlad; povodny XElement zostava v Tag nezmeneny.
         string text = e.Name.LocalName + (e.HasElements ? "" : "  =  " + (e.Value.Length > 2000 ? e.Value[..2000] + "…" : e.Value));
         var n = new TreeViewItem { Header = text, ToolTip = e.Name.ToString(), Tag = e };
         if (e.HasElements || e.HasAttributes)
@@ -298,6 +321,7 @@ internal sealed class ViewerWindow : Window
     }
     void SavePdf()
     {
+        // Bajty zachytime pred modalnym dialogom. Export ma ulozit dokument, pre ktory ho pouzivatel otvoril.
         if (pdfBytes == null) return; var data = pdfBytes;
         var dialog = new SaveFileDialog { Filter = "PDF|*.pdf", FileName = Path.GetFileNameWithoutExtension(currentPath) + ".pdf", OverwritePrompt = true };
         if (dialog.ShowDialog(this) == true) try { if (string.Equals(Path.GetFullPath(dialog.FileName), currentPath, StringComparison.OrdinalIgnoreCase)) throw new IOException("Zdrojovy XML sa nesmie prepisat."); File.WriteAllBytes(dialog.FileName, data); } catch (Exception e) { AppDialog.Info(this, "Ulozenie PDF", e.Message); }
@@ -309,6 +333,7 @@ internal sealed class ViewerWindow : Window
         try
         {
             using var view = await PdfView.Open(data); var document = new FixedDocument();
+            // Tlac drzi bitmapy vsetkych stran naraz. Limit chrani pamat; velky doklad sa da exportovat ako PDF.
             if (view.Document.PageCount > 100) throw new InvalidDataException("Pri viac ako 100 stranach ulozte PDF a vytlacte ho v PDF aplikacii.");
             status.Text = "Pripravujem tlac…";
             for (uint i = 0; i < view.Document.PageCount; i++)
@@ -322,6 +347,8 @@ internal sealed class ViewerWindow : Window
     }
     void Associations()
     {
+        // Registrujeme iba ponuku Otvorit v programe. Predvolbu .xml potvrdi pouzivatel vo Windows,
+        // pretoze pripona patri aj konfiguraciam a inym dokumentom, nielen fakturam.
         if (!AppDialog.Confirm(this, "Otvaranie XML", "Zaregistrovat eFaktura Viewer do ponuky Otvorit v programe pre XML? Predvolenu aplikaciu si potom vyberiete vo Windows.", "Zaregistrovat")) return;
         try
         {
@@ -346,6 +373,7 @@ internal sealed class ViewerWindow : Window
             }
             if (closed) return;
             if (update == null) { if (manual) AppDialog.Info(this, "Vsetko je aktualne", "Mate aktualnu verziu eFaktura Viewer."); return; }
+            // Kontrola pri starte iba upozorni. Stahovanie a restart patria az k vedomemu potvrdeniu pouzivatela.
             if (!manual) { status.Text = "Dostupna verzia " + update.Version + "  •  Prave tlacidlo → Aktualizovat"; return; }
             if (!AppDialog.Confirm(this, "Nova verzia " + update.Version, "Stiahnut a nainstalovat aktualizaciu? Po overeni digitalneho podpisu sa aplikacia znova spusti s otvorenou fakturou.", "Aktualizovat")) return;
             if (!AppDialog.Work(this, "Aktualizacia aplikacie", "Pripravujem stahovanie…", (progress, token) => Updates.Install(update, currentPath, progress, token))) return;
@@ -358,6 +386,8 @@ internal sealed class ViewerWindow : Window
     {
         preferences.Light = light; Theme(); UpdateLayout(); await rendering.WaitAsync(); rendering.Release(); await RenderVisible();
         foreach (var image in images) image.InvalidateVisual(); pages.InvalidateVisual();
+        // Dokoncene RenderVisible este neznamena prekresleny WPF obraz. Sonda potrebuje aj priechod
+        // kompozitora; bez neho snimka po zmene temy niekedy obsahovala iba bielu plochu strany.
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render); await Task.Delay(120); UpdateLayout();
         var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth, (int)ActualHeight, 96, 96, PixelFormats.Pbgra32); bitmap.Render(this);
         var png = new System.Windows.Media.Imaging.PngBitmapEncoder(); png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using var output = File.Create(path); png.Save(output);
@@ -373,6 +403,8 @@ internal sealed class ViewerWindow : Window
     internal byte BackgroundAlpha => ((SolidColorBrush)shell.Background).Color.A;
     internal bool CanDragHeader(DependencyObject? source, Point point)
     {
+        // Klik moze trafit Path alebo TextBlock v tlacidle. Kontrolujeme aj predkov,
+        // aby tahanie celeho zahlavia neprevzalo kliknutie na ovladaci prvok.
         if (point.Y < 0 || point.Y > shell.Margin.Top + shell.BorderThickness.Top + shell.Padding.Top + header.ActualHeight) return false;
         while (source != null)
         {

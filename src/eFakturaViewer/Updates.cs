@@ -22,13 +22,19 @@ internal static class Updates
     }
     internal static UpdateOffer Manifest(byte[] bytes, string signature, string? publicKey = null)
     {
+        // Overujeme povodne bajty JSON, nie znovu serializovany objekt. Aj zmena medzier by
+        // zmenila podpis; udajom o verzii, velkosti a podpise EXE doverujeme az po tomto kroku.
         Verify(bytes, signature, publicKey);
         var offer = JsonSerializer.Deserialize<UpdateOffer>(bytes) ?? throw new InvalidDataException("Chyba popis aktualizacie.");
+        // Pevny nazov suboru a runtime udrzuju format balika jednoznacny. Nazov z manifestu
+        // sa neskor pouziva ako cesta, preto tu nepripustame lubovolne meno ani podpriecinok.
         if (!System.Version.TryParse(offer.Version, out _) || offer.Tag != "v" + offer.Version || offer.File != "eFakturaViewer.exe" || offer.Runtime != "win-x64" || offer.Size < 10000 || offer.Size > 350L * 1024 * 1024) throw new InvalidDataException("Neplatne udaje aktualizacie.");
         return offer;
     }
     static async Task<byte[]> Small(HttpClient client, string url, CancellationToken token = default)
     {
+        // Limitujeme aj realne precitane bajty. Server nemusi poslat Content-Length alebo moze
+        // poslat nespravnu hodnotu; maly manifest nesmie naplnit pamat ako velke stahovanie.
         using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token); response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(token); using var m = new MemoryStream(); byte[] buffer = new byte[4096]; int n;
         while ((n = await stream.ReadAsync(buffer, token)) != 0) { if (m.Length + n > 16384) throw new InvalidDataException("Prilis velky popis aktualizacie."); m.Write(buffer, 0, n); } return m.ToArray();
@@ -38,6 +44,8 @@ internal static class Updates
         using var client = Client(); byte[] discovery;
         try { discovery = await Small(client, $"https://github.com/{Repository}/releases/latest/download/update.json", token); }
         catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.NotFound) { return null; }
+        // Odkaz latest sa moze pocas kontroly zmenit. Je iba vodidlom k tagu; manifest a jeho
+        // podpis potom berieme z rovnakeho konkretneho vydania, aby sa nezmiesali dve verzie.
         var hint = JsonSerializer.Deserialize<UpdateOffer>(discovery) ?? throw new InvalidDataException("Neplatny popis.");
         if (!System.Version.TryParse(hint.Version, out var v) || hint.Tag != "v" + hint.Version) throw new InvalidDataException("Neplatna verzia.");
         var bytes = await Small(client, Asset(hint.Tag, "update.json"), token); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(hint.Tag, "update.sig"), token));
@@ -47,17 +55,23 @@ internal static class Updates
     }
     internal static void VerifyFile(string path, UpdateOffer offer, string? key = null)
     {
+        // Dlzka zachyti neuplne stiahnutie, pravost potvrdzuje az RSA podpis celeho streamu.
+        // Samotny hash z GitHubu by nepotvrdil, ze subor podpisal nas vydavatel.
         using var file = File.OpenRead(path); if (file.Length != offer.Size) throw new InvalidDataException("Neuplna aktualizacia.");
         using var rsa = RSA.Create(); rsa.FromXmlString(key ?? Key);
         if (!rsa.VerifyData(file, Convert.FromBase64String(offer.Signature), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)) throw new InvalidDataException("Podpis EXE nie je platny.");
     }
     internal static async Task Install(UpdateOffer offer, string? reopen, IProgress<int> progress, CancellationToken token = default)
     {
+        // Kazdy pokus ma vlastny priecinok, aby ciastocne stiahnutie z minuleho pokusu
+        // nebolo povazovane za sucast noveho balika. Beziaci EXE sa tu este nemeni.
         var job = Path.Combine(Preferences.DirectoryPath, "Updates", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(job);
         try
         {
         using var client = Client();
         var bytes = await Small(client, Asset(offer.Tag, "update.json"), token); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(offer.Tag, "update.sig"), token));
+        // Medzi ponukou a potvrdenim mohol vydavatel vymenit subory vydania. Instalujeme
+        // presne ponuknuty balik; zmenu nechame znovu prejst kontrolou aktualizacie.
         var verified = Manifest(bytes, sig); if (verified != offer) throw new InvalidDataException("Vydanie sa zmenilo. Skuste kontrolu znova.");
         File.WriteAllBytes(Path.Combine(job, "update.json"), bytes); File.WriteAllText(Path.Combine(job, "update.sig"), sig);
         var candidate = Path.Combine(job, offer.File);
@@ -71,9 +85,12 @@ internal static class Updates
         File.WriteAllText(Path.Combine(job, "reopen.json"), JsonSerializer.Serialize(reopen));
         var target = Environment.ProcessPath!; // Kontrola prava zapisu pred ukoncenim okna.
         var probe = Path.Combine(Path.GetDirectoryName(target)!, ".efaktura-write-" + Guid.NewGuid().ToString("N")); using (File.Create(probe)) { } File.Delete(probe);
+        // Windows nedovoli prepisat spusteny EXE. Vymenu dokonci kopia povodnej aplikacie,
+        // ktora pocka na ukoncenie okna a overi novy balik tym istym doveryhodnym klucom.
         var helper = Path.Combine(job, "updater.exe"); File.Copy(target, helper);
         token.ThrowIfCancellationRequested();
         var start = new ProcessStartInfo(helper) { UseShellExecute = false, CreateNoWindow = true };
+        // ArgumentList zachova cesty s medzerami bez skladania prikazu pre shell.
         start.ArgumentList.Add("--apply-update"); start.ArgumentList.Add(job); start.ArgumentList.Add(target); start.ArgumentList.Add(Environment.ProcessId.ToString());
         _ = Process.Start(start) ?? throw new IOException("Aktualizator sa nespustil.");
         }
@@ -90,14 +107,20 @@ internal static class Updates
     {
         try
         {
+            // Pomocny proces cita subory nanovo, preto nemoze spoliehat iba na kontrolu v okne.
+            // Podpis aj verziu overi este pred tym, nez sa dotkne cieloveho EXE.
             var offer = Manifest(File.ReadAllBytes(Path.Combine(job, "update.json")), File.ReadAllText(Path.Combine(job, "update.sig")));
             if (System.Version.Parse(offer.Version) <= Assembly.GetExecutingAssembly().GetName().Version) throw new InvalidDataException("Aktualizacia musi byt novsia.");
             var candidate = Path.Combine(job, offer.File); VerifyFile(candidate, offer);
             try { using var process = Process.GetProcessById(int.Parse(parent)); if (!process.WaitForExit(60000)) throw new IOException("Aplikacia sa neukoncila."); } catch (ArgumentException) { }
             var next = target + ".next"; var backup = target + ".previous";
+            // Pripravena kopia lezi vedla ciela na rovnakom disku. File.Replace vymeni subor
+            // so zalohou; priamy zapis do ciela by pri preruseni nechal nefunkcny EXE.
             File.Copy(candidate, next, true); VerifyFile(next, offer); File.Replace(next, target, backup, true);
             try
             {
+                // Platny podpis este nezarucuje spustitelnost na tomto PC. Zalohu ponechame,
+                // kym prejde sonda a spustenie bezneho procesu vrati uspech. Jeho neskorsi pad uz nesledujeme.
                 var probe = new ProcessStartInfo(target) { UseShellExecute = false, CreateNoWindow = true }; probe.ArgumentList.Add("--probe");
                 using var check = Process.Start(probe) ?? throw new IOException("Novu verziu sa nepodarilo spustit.");
                 if (!check.WaitForExit(20000) || check.ExitCode != 0) throw new IOException("Nova verzia nepresla kontrolou startu.");

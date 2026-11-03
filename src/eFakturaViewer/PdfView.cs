@@ -7,6 +7,8 @@ namespace eFakturaViewer;
 
 internal sealed class PdfView : IDisposable
 {
+    // Dokument si zo streamu docitava strany neskor. Stream preto zije rovnako dlho ako PdfView,
+    // nie iba pocas LoadFromStreamAsync.
     readonly InMemoryRandomAccessStream source;
     internal PdfDocument Document { get; }
     PdfView(InMemoryRandomAccessStream stream, PdfDocument doc) { source = stream; Document = doc; }
@@ -28,6 +30,8 @@ internal sealed class PdfView : IDisposable
         using var stream = new InMemoryRandomAccessStream();
         await page.RenderToStreamAsync(stream, new PdfPageRenderOptions { DestinationWidth = width });
         using var input = stream.AsStreamForRead();
+        // OnLoad odpoji bitmapu od docasneho streamu pred jeho zavretim. Freeze umozni
+        // pouzit hotovy obraz aj po navrate z vykreslovania bez dalsich zmien jeho obsahu.
         var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = input; image.EndInit(); image.Freeze(); return image;
     }
     public void Dispose() => source.Dispose();

@@ -18,19 +18,25 @@ internal static class WindowPlacement
     internal static Rect LastInitialBounds { get; private set; }
     internal static Rect Calculate(Rect screen)
     {
+        // Poziadavka je 97 % vysky a pomer A4. Na uzkom monitore rozhodne sirka,
+        // aby sa okno zmestilo cele; pomer stran pritom zachovame.
         var height = Math.Min(screen.Height * .97, screen.Width * .97 * 297 / 210);
         var width = height * 210 / 297;
         return new Rect(screen.Left + (screen.Width - width) / 2, screen.Top + (screen.Height - height) / 2, width, height);
     }
     internal static void Center(Window window)
     {
+        // Novy dokument sa otvara pri kurzore, nie vzdy na primarnom monitore.
         GetCursorPos(out var cursor); var monitor = MonitorFromPoint(cursor, 2);
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
         if (!GetMonitorInfo(monitor, ref info)) { window.WindowStartupLocation = WindowStartupLocation.CenterScreen; return; }
+        // Percento sa vztahuje na celu obrazovku podla zadania, nie na pracovnu plochu po odratani taskbaru.
         var bounds = Calculate(new Rect(info.Monitor.Left, info.Monitor.Top, info.Monitor.Right - info.Monitor.Left, info.Monitor.Bottom - info.Monitor.Top));
         LastInitialBounds = bounds;
         uint dpiX = 96, dpiY = 96;
         if (GetDpiForMonitor(monitor, 0, out var x, out var y) == 0) { dpiX = x; dpiY = y; }
+        // WPF rozmery su v jednotkach 1/96 palca, udaje monitora v pixeloch. Minimalna velkost
+        // tiez nesmie prebit vypocet na malom monitore s vysokym skalovanim.
         window.MinWidth = Math.Min(260, bounds.Width * 96 / dpiX); window.MinHeight = Math.Min(360, bounds.Height * 96 / dpiY);
         window.Width = bounds.Width * 96 / dpiX; window.Height = bounds.Height * 96 / dpiY;
         // Fyzicke pixely zabezpecia spravne centrovanie aj na monitore s inym DPI ci zapornymi suradnicami.

@@ -49,11 +49,15 @@ internal sealed class AppDialog : Window
         var bar = new ProgressBar { Height = 5, Minimum = 0, Maximum = 100, IsIndeterminate = true, Margin = new Thickness(0, 18, 0, 0), BorderThickness = new Thickness(0) };
         bar.SetResourceReference(ProgressBar.ForegroundProperty, "Accent"); bar.SetResourceReference(ProgressBar.BackgroundProperty, "Input"); window.body.Children.Insert(2, bar);
         var cancel = VisualStyle.Button("", "Zrusit", "Zrusit", () => { cancellation.Cancel(); }); window.footer.Children.Add(cancel);
+        // Krizik ani Escape nesmu vratit riadenie volajucemu, kym operacia este pracuje.
+        // Najprv poziadame o zrusenie a dialog zavrieme az po jej dobehnuti a uvolneni suborov.
         window.Closing += (_, e) => { if (!finished) { e.Cancel = true; cancellation.Cancel(); cancel.IsEnabled = false; window.message.Text = "Ukoncujem operaciu…"; } };
         window.Loaded += async (_, _) =>
         {
             try
             {
+                // Progress vznikne na UI vlakne a vracia sem aktualizacie z Task.Run.
+                // Priznak finished ignoruje oneskorene hlasenia po ukonceni operacie.
                 var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = p >= 100 ? "Overujem digitalny podpis…" : $"Stahujem aktualizaciu · {p} %"; } });
                 await Task.Run(() => operation(progress, cancellation.Token));
             }

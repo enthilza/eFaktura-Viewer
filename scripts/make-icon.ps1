@@ -4,11 +4,14 @@ Add-Type -AssemblyName System.Drawing
 $taskAssets = Join-Path $PSScriptRoot '../src/eFakturaViewer/Assets'
 New-Item -ItemType Directory -Force $taskAssets | Out-Null
 if ($PreviewDirectory) { New-Item -ItemType Directory -Force $PreviewDirectory | Out-Null }
+# Vlastne velkosti zabranuju tomu, aby Windows pre malu ikonu iba zmensil velky raster.
 $taskSizes = @(16,24,32,48,64,128,256)
 $taskFrames = [Collections.Generic.List[byte[]]]::new()
 foreach ($taskSize in $taskSizes) {
     $taskBitmap = [Drawing.Bitmap]::new($taskSize,$taskSize,[Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $taskGraphics = [Drawing.Graphics]::FromImage($taskBitmap)
+    # ClearType by na priehladnom okraji pismena vytvoril farebne lemy. Pouzijeme
+    # bezne vyhladzovanie, aby ikona zostala ciernobiela na svetlom aj tmavom pozadi.
     $taskGraphics.SmoothingMode = 'AntiAlias'; $taskGraphics.TextRenderingHint = 'AntiAliasGridFit'; $taskGraphics.Clear([Drawing.Color]::Transparent)
     $taskGraphics.ScaleTransform(($taskSize / 256.0),($taskSize / 256.0))
     $taskPaper = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(250,250,250))
@@ -38,8 +41,10 @@ foreach ($taskSize in $taskSizes) {
 $taskWriter = [IO.BinaryWriter]::new([IO.File]::Create((Join-Path $taskAssets 'app.ico')))
 try {
     $taskWriter.Write([uint16]0); $taskWriter.Write([uint16]1); $taskWriter.Write([uint16]$taskSizes.Count)
+    # ICO ma 6-bajtovu hlavicku a 16 bajtov na kazdy zaznam; PNG data nasleduju az za celou tabulkou.
     $taskOffset = 6 + 16 * $taskSizes.Count
     for ($taskIndex = 0; $taskIndex -lt $taskSizes.Count; $taskIndex++) {
+        # Rozmer v ICO je jeden bajt; hodnota 0 je predpisany zapis rozmeru 256, nie prazdna ikona.
         $taskSide = if ($taskSizes[$taskIndex] -eq 256) { 0 } else { $taskSizes[$taskIndex] }
         $taskWriter.Write([byte]$taskSide); $taskWriter.Write([byte]$taskSide); $taskWriter.Write([byte]0); $taskWriter.Write([byte]0)
         $taskWriter.Write([uint16]1); $taskWriter.Write([uint16]32); $taskWriter.Write([uint32]$taskFrames[$taskIndex].Length); $taskWriter.Write([uint32]$taskOffset)

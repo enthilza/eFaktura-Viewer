@@ -71,7 +71,7 @@ Prevadzkove limity prvej verzie: XML 30 MB, 2000 poloziek, PDF 1000 stran. Heslo
 
 ## Overenie
 
-Verzia 1.0.2 presla 59 kontrolami bez preskocenia. Kontroly overuju zakladny BIS, FMCG, dobropis, nemenene vstupy, namespace prefixy, DTD/XXE vratane UTF-16, poskodene XML/PDF/base64, viac priloh, predvoleny generovany nahlad, 2000 poloziek, dlhy text, podpisy a rychle listovanie. Overuju aj skutocne rozmery otvoreneho okna, prisposobenie vyske/sirke, vykreslenie oboch tem, modalne okna, priehladnu ikonu a dostupnost hornych nastrojov pri jedinom XML.
+Verzia 1.0.3 presla 59 kontrolami bez preskocenia. Kontroly overuju zakladny BIS, FMCG, dobropis, nemenene vstupy, namespace prefixy, DTD/XXE vratane UTF-16, poskodene XML/PDF/base64, viac priloh, predvoleny generovany nahlad, 2000 poloziek, dlhy text, podpisy a rychle listovanie. Overuju aj skutocne rozmery otvoreneho okna, prisposobenie vyske/sirke, vykreslenie oboch tem, modalne okna, priehladnu ikonu a dostupnost hornych nastrojov pri jedinom XML.
 
 V odpojenej relacii Windows nemoze WPF vykreslit ani nezavislu graficku sondu. Vizualne kontroly okna su vtedy oznacene ako **preskocene**, nie uspesne. PDF je mozne vykreslit a overit nezavisle. Rucne overenie fyzickej tlaciarne, roznych DPI/monitorov a vypadkov konkretneho sietoveho disku zostava na cielovom PC.
 

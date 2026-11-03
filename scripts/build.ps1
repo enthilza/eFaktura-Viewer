@@ -6,12 +6,15 @@ $taskExit = 1
 try {
     & (Join-Path $PSScriptRoot 'make-icon.ps1')
     if (!(Test-Path (Join-Path $taskRoot 'src/eFakturaViewer/Assets/update-public-key.xml'))) { throw 'Chyba verejny aktualizacny kluc. Pozrite README.' }
+    # Cielovy pocitac nema mat instalovany .NET. Single-file pribali aj nativne kniznice,
+    # ktore si runtime pri starte rozbali do vlastnej cache; .build obsahuje iba vystupy zostavenia.
     & dotnet publish (Join-Path $taskRoot 'src/eFakturaViewer/eFakturaViewer.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o (Join-Path $taskBuild 'publish') --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Zostavenie zlyhalo.' }
     New-Item -ItemType Directory -Force (Join-Path $taskRoot 'dist') | Out-Null
     $taskExe = Join-Path $taskRoot 'dist/eFakturaViewer.exe'
     Copy-Item -LiteralPath (Join-Path $taskBuild 'publish/eFakturaViewer.exe') -Destination $taskExe -Force
     if ($Verify) {
+        # Kontrolujeme priamo samostatny EXE, ktory budeme distribuovat, vratane pribalenych zdrojov.
         $taskArgs = @('--self-test', ('"' + (Join-Path $taskRoot 'test-results') + '"'), ('"' + (Join-Path $taskRoot 'examples') + '"'))
         $taskTest = Start-Process $taskExe -ArgumentList $taskArgs -WindowStyle Hidden -Wait -PassThru
         if ($taskTest.ExitCode -ne 0) { throw 'Kontroly zlyhali. Pozrite test-results/failure.txt.' }
@@ -23,6 +26,8 @@ try {
     $taskExit = 0
 } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
 finally {
+    # Upratovanie bezi aj po chybe. Pred rekurzivnym mazanim overime presny ciel,
+    # aby zmena premennej nemohla odstranit projekt alebo spolocnu cache.
     $taskResolved = [IO.Path]::GetFullPath($taskBuild)
     if ($taskResolved -ne (Join-Path $taskRoot '.build') -or !$taskResolved.StartsWith($taskRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Neocakavany adresar zostavenia.' }
     if (Test-Path -LiteralPath $taskResolved) {

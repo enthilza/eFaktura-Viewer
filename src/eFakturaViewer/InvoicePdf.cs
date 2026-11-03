@@ -47,11 +47,14 @@ internal static class InvoicePdf
             var name = Value(item, "Name"); rr.Cells[1].AddParagraph(name.Length <= 160 ? name : name[..160] + "…");
             rr.Cells[2].AddParagraph((q?.Value ?? "") + " " + UnitName((string?)q?.Attribute("unitCode")));
             var basis = Value(price, "BaseQuantity");
+            // Cena moze platit napr. za 12 kusov. Zaklad zobrazime pri cene, neprepisujeme ju
+            // na cenu za kus ani z nej znovu nepocitame sumu riadka dodanu v XML.
             rr.Cells[3].AddParagraph(Money(Value(price, "PriceAmount")) + (basis != "" ? " / " + basis + " " + UnitName((string?)price?.Element(C + "BaseQuantity")?.Attribute("unitCode") ?? (string?)q?.Attribute("unitCode")) : ""));
             rr.Cells[4].AddParagraph(Value(item?.Element(A + "ClassifiedTaxCategory"), "Percent") + " %");
             rr.Cells[5].AddParagraph(Money(Value(line, "LineExtensionAmount")));
             for (int c = 2; c < 6; c++) rr.Cells[c].Format.Alignment = ParagraphAlignment.Right;
-            // Detailne udaje su odstavce: aj jedna extremne dlha polozka sa moze rozdelit na viac stran.
+            // Dlha bunka tabulky sa neda spolahlivo rozdelit medzi strany. V tabulke preto zostane
+            // kratky nazov a sumy, cely nazov a podrobnosti idu do samostatnych odstavcov pod nou.
             var details = new List<string>();
             if (name.Length > 160) details.Add("Nazov: " + name);
             if (item != null) foreach (var child in item.Elements())
@@ -67,6 +70,8 @@ internal static class InvoicePdf
         foreach (var tax in r.Elements(A + "TaxTotal")) Details(s, tax);
         s.AddParagraph("Suhrn a platba", StyleNames.Heading2);
         var totals = r.Element(A + "LegalMonetaryTotal");
+        // Zobrazujeme rekapitulaciu dodavatela. Vlastny prepocet by mohol prekryt jeho zaokruhlenie,
+        // preddavky alebo rozdiel v doklade; prezerac nema opravovat uctovne hodnoty.
         if (totals != null) foreach (var e in totals.Elements())
         {
             var p = s.AddParagraph(Label(e.Name.LocalName) + ":  " + Money(e.Value) + " " + ((string?)e.Attribute("currencyID") ?? invoice.Currency));
@@ -79,6 +84,8 @@ internal static class InvoicePdf
         foreach (var e in r.Elements(A + "AdditionalDocumentReference")) Details(s, e);
         var note = s.AddParagraph("Nahlad nie je potvrdenim formalnej platnosti BIS. Vlozene PDF moze mat iny obsah ako XML."); note.Format.Font.Size = 7; note.Format.Font.Color = Colors.Gray;
         token.ThrowIfCancellationRequested();
+        // MigraDoc pocas RenderDocument neprebera nas token. Kontrola po navrate zahodi vysledok,
+        // ak pouzivatel medzitym presiel na iny subor; samotne vykreslenie vsak musi dobehnut.
         var renderer = new PdfDocumentRenderer { Document = d }; renderer.RenderDocument();
         token.ThrowIfCancellationRequested();
         using var output = new MemoryStream(); renderer.PdfDocument.Save(output, false); return output.ToArray();
@@ -118,11 +125,14 @@ internal static class InvoicePdf
     }
     static IEnumerable<string> Leaves(XElement e, string prefix = "")
     {
+        // Base64 by zbytocne zaplnilo strany a nebolo citatelne. Prilohu tu zastupuju iba jej udaje;
+        // povodne PDF je dostupne samostatnym prepinacom v prezeraci.
         if (e.Name.LocalName == "EmbeddedDocumentBinaryObject") { yield return "Vlozena priloha: " + (string?)e.Attribute("filename") + " (" + (string?)e.Attribute("mimeCode") + ")"; yield break; }
         var label = prefix + Label(e.Name.LocalName);
         if (e.HasElements) { foreach (var c in e.Elements()) foreach (var v in Leaves(c)) yield return v; }
         else if (!string.IsNullOrWhiteSpace(e.Value))
         {
+            // Atributy nesu menu, jednotku alebo identifikacnu schemu. Samotna hodnota bez nich moze zmenit vyznam.
             var attrs = string.Join(", ", e.Attributes().Where(a => !a.IsNamespaceDeclaration).Select(a => a.Name.LocalName + "=" + a.Value));
             if (e.Name.LocalName == "ID") label = e.Parent?.Name.LocalName switch { "PayeeFinancialAccount" => "IBAN / ucet", "TaxScheme" => "Danovy system", "TaxCategory" or "ClassifiedTaxCategory" => "Kategoria DPH", "OrderReference" => "Objednavka", _ => label };
             yield return label + ": " + (e.Name.LocalName.EndsWith("Date") ? Date(e.Value) : e.Value) + (attrs == "" ? "" : " [" + attrs + "]");

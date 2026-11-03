@@ -26,12 +26,15 @@ internal static class SelfTest
         var skipped = new List<string>();
         void Check(bool value, string name) { if (!value) throw new Exception(name); checks.Add(name); }
         void Reject(Action a, string name) { try { a(); } catch { checks.Add(name); return; } throw new Exception("Neodmietnute: " + name); }
+        // Najprv skusime obraz nezavisly od prezeraca. Iba zlyhanie tejto sondy spolu s odpojenou
+        // relaciou opravnuje preskocit snimky; inak by sme mohli skryt skutocnu chybu vykreslovania.
         RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         var probe = new DrawingVisual(); using (var dc = probe.RenderOpen()) dc.DrawRectangle(Brushes.Red, null, new Rect(0, 0, 2, 2));
         var probeBitmap = new RenderTargetBitmap(2, 2, 96, 96, PixelFormats.Pbgra32); probeBitmap.Render(probe); byte[] pixels = new byte[16]; probeBitmap.CopyPixels(pixels, 8, 0);
         var canRender = pixels[2] == 255 && pixels[3] == 255;
         if (!canRender && Disconnected()) skipped.Add("Vizualna kontrola WPF okna: odpojena relacia Windows vracia prazdny obraz aj pre nezavislu graficku sondu.");
         else Check(canRender, "WPF graficka sonda");
+        // Porovnanie pred a po behu kontroluje slub, ze prezeranie nikdy nemenilo vstupne XML.
         var originals = Directory.GetFiles(examples, "*.xml").ToDictionary(p => p, p => SHA256.HashData(File.ReadAllBytes(p)));
         foreach (var name in new[] { "01_zaklad", "02_fmcg", "04_dobropis" })
         {
@@ -76,6 +79,8 @@ internal static class SelfTest
         var longDoc = new XDocument(big.Xml); longDoc.Root!.Elements(Invoice.A + "InvoiceLine").Skip(1).Remove();
         var longPdf = await Task.Run(() => InvoicePdf.Create(Invoice.Parse(Encoding.UTF8.GetBytes(longDoc.ToString())), CancellationToken.None));
         using (var view = await PdfView.Open(longPdf)) Check(view.Document.PageCount >= 2, "Jedna velmi dlha polozka sa zalomi na viac stran");
+        // Testovaci kluc je jednorazovy a nesuvisi s vydavatelom. Test nema potrebovat privatny
+        // produkcny kluc; skutocny vydany balik sa overuje osobitne cez --verify-package.
         using var rsa = RSA.Create(2048); var payload = Encoding.UTF8.GetBytes("test podpisu"); var signature = Convert.ToBase64String(rsa.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
         Updates.Verify(payload, signature, rsa.ToXmlString(false)); checks.Add("Platny podpis");
         Reject(() => Updates.Verify(Encoding.UTF8.GetBytes("zmenene"), signature, rsa.ToXmlString(false)), "Pozmeneny podpisany obsah");
@@ -124,6 +129,8 @@ internal static class SelfTest
         await window.OpenPath(Path.Combine(single, "faktura.xml")); Check(!window.NavigationVisible, "Jeden XML skryje spodny panel"); Check(window.HeaderToolsVisible && window.PageFitsHeight, "Pri jednom XML zostavaju horne nastroje a strana na vysku"); if (canRender) await window.Capture(Path.Combine(output, "viewer-single.png"), false);
         var unknown = Path.Combine(single, "settings.xml"); File.WriteAllText(unknown, "<settings><server port='443'>Ukazka</server><enabled>true</enabled></settings>");
         await window.OpenPath(unknown); Check(window.EmptyTitle == "Toto nie je eFaktúra." && window.NavigationVisible, "Bezne XML zobrazi oznam a zachova navigaciu"); if (canRender) await window.Capture(Path.Combine(output, "viewer-xml.png"), false);
+        // Zamerne necakame medzi poziadavkami. Postupne await by neodhalilo oneskoreny
+        // vysledok prveho nacitania, ktory by prepisal druhy dokument.
         var first = window.OpenPath(Path.Combine(examples, "02_fmcg.xml")); var second = window.OpenPath(Path.Combine(examples, "04_dobropis.xml")); await Task.WhenAll(first, second);
         Check(window.Title.StartsWith("04_dobropis.xml") && window.OpenedNumber == Invoice.Load(Path.Combine(examples, "04_dobropis.xml"), CancellationToken.None).Number && window.HasPdf, "Rychle listovanie zachova poslednu poziadavku a jej PDF");
         Check(originals.All(x => x.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(x.Key)))), "Vstupne subory zostali nezmenene");

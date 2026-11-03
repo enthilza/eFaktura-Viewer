@@ -13,6 +13,8 @@ internal static class VisualStyle
     internal static Brush Brush(string key) => (Brush)Application.Current.FindResource(key);
     internal static void Apply(bool light)
     {
+        // Farby menime v zdrojoch aplikacie. DynamicResource v sablonach vdaka tomu
+        // aktualizuje aj uz vytvorene ovladacie prvky a vlastne dialogy bez ich obnovovania.
         Light = light;
         var r = Application.Current.Resources;
         void Set(string key, string dark, string bright) => r[key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? bright : dark));
@@ -49,6 +51,8 @@ internal static class VisualStyle
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
     internal static void RoundedShell(Window window)
     {
+        // Zaoblenie kresli WPF Border. Druhy ramec od DWM by pri priehladnom okne mohol
+        // vytvorit obdlznikovy obrys mimo neho; 33/34 su atributy zaoblenia a farby okraja DWM.
         int noRounding = 1, noBorder = unchecked((int)0xFFFFFFFE);
         var handle = new WindowInteropHelper(window).Handle;
         DwmSetWindowAttribute(handle, 33, ref noRounding, 4); DwmSetWindowAttribute(handle, 34, ref noBorder, 4);
