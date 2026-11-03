@@ -1,4 +1,4 @@
-# eFaktúra Viewer 1.0.4
+# eFaktura Viewer 1.0.4
 
 Opravy funkčných chýb z nezávislého auditu a pohodlnejšie zobrazenie faktúr.
 

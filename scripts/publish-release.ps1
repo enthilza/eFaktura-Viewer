@@ -11,7 +11,7 @@ if ($taskVerify.ExitCode -ne 0) { throw 'Podpis vydania nie je platny.' }
 & git -C $taskRoot diff --quiet HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Pred vydanim commitnite vsetky sledovane zmeny.' }
 $taskCommit = & git -C $taskRoot rev-parse HEAD
-& gh release create "v$taskVersion" (Join-Path $taskDist 'eFakturaViewer.exe') (Join-Path $taskDist 'update.json') (Join-Path $taskDist 'update.sig') --repo $Repository --target $taskCommit --title "eFaktúra Viewer $taskVersion" --notes-file (Join-Path $taskRoot 'release-notes.md')
+& gh release create "v$taskVersion" (Join-Path $taskDist 'eFakturaViewer.exe') (Join-Path $taskDist 'update.json') (Join-Path $taskDist 'update.sig') --repo $Repository --target $taskCommit --title "eFaktura Viewer $taskVersion" --notes-file (Join-Path $taskRoot 'release-notes.md')
 if ($LASTEXITCODE -ne 0) { throw 'Vydanie sa nepodarilo publikovat.' }
 # Starsie vydania odstranime az po overeni bajtov stiahnutych z noveho vydania.
 # Tagy ostavaju v Git historii; mazeme vydania a ich binarne prilohy, nie zdrojovy kod.
