@@ -138,8 +138,9 @@ internal static class SelfTest
         await ReviewTests.Run(output, examples, checks);
         Check(originals.All(x => x.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(x.Key)))), "Vstupne súbory zostali nezmenene");
         if (!canRender) foreach (var p in Directory.GetFiles(output, "viewer-*.png")) File.Delete(p);
-        File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = typeof(App).Assembly.GetName().Version!.ToString(3) }, new JsonSerializerOptions { WriteIndented = true }));
         window.Close();
+        await PreferenceTests.Run(output, examples, checks);
+        File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = typeof(App).Assembly.GetName().Version!.ToString(3) }, new JsonSerializerOptions { WriteIndented = true }));
     }
     static void SaveWindow(Window window, string path)
     {

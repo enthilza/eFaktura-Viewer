@@ -4,22 +4,6 @@ using System.Windows;
 
 namespace eFakturaViewer;
 
-internal sealed class Preferences
-{
-    internal static string UserDirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eFakturaViewer");
-    internal static string? TestDirectory { get; set; }
-    internal static string DirectoryPath => TestDirectory ?? UserDirectoryPath;
-    // Predvolba plati pre prve spustenie alebo chybajuce pole; ulozena volba ma prednost.
-    public bool Light { get; set; } = true;
-    public bool CheckUpdates { get; set; } = true;
-    public bool ReverseSort { get; set; }
-    public string LastDirectory { get; set; } = "";
-    // Poskodene nastavenia nemaju zabranit otvoreniu faktury. Pouzijeme bezpecne predvolby.
-    internal static Preferences Load() { try { return JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(DirectoryPath, "settings.json"))) ?? new(); } catch { return new(); } }
-    // Najprv dokoncit JSON vedla ciela, az potom vymenit subor. Pri chybe zapisu tak zostane stara kopia.
-    internal void Save() { Directory.CreateDirectory(DirectoryPath); var path = Path.Combine(DirectoryPath, "settings.json"); var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp"; File.WriteAllText(temp, JsonSerializer.Serialize(this)); File.Move(temp, path, true); }
-}
-
 internal sealed class App : Application
 {
     internal App()
@@ -53,8 +37,11 @@ internal sealed class App : Application
         if (args.Length == 1 && args[0] == "--probe") { var probe = new ViewerWindow(null); probe.Close(); return 0; }
         if (args.Length > 0 && args[0] == "--self-test")
         {
+            // Test obnovy zamerne zavrie vsetky okna a otvori nove. WPF nesmie ukoncit
+            // proces medzi nimi; vysledny kod vrati az dokoncenie celeho testu.
+            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var results = args.Length > 1 ? args[1] : "test-results";
-            app.Startup += async (_, _) => { try { await SelfTest.Run(results, args.Length > 2 ? args[2] : "examples"); app.Shutdown(0); } catch (Exception ex) { System.IO.Directory.CreateDirectory(results); File.WriteAllText(Path.Combine(results, "failure.txt"), ex.ToString()); app.Shutdown(1); } };
+            app.Startup += async (_, _) => { try { await SelfTest.Run(results, args.Length > 2 ? args[2] : "examples"); app.Shutdown(0); } catch (Exception ex) { System.IO.Directory.CreateDirectory(results); File.WriteAllText(Path.Combine(results, "failure.txt"), ex.ToString()); app.Shutdown(1); } finally { Preferences.CleanupTestProfile(); } };
         }
         else app.Startup += (_, _) =>
         {

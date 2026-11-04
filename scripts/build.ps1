@@ -15,10 +15,17 @@ try {
     Copy-Item -LiteralPath (Join-Path $taskBuild 'publish/eFakturaViewer.exe') -Destination $taskExe -Force
     if ($Verify) {
         # Kontrolujeme priamo samostatny EXE, ktory budeme distribuovat, vratane pribalenych zdrojov.
+        # Stary protokol nesmie zamaskovat predcasne ukoncenie noveho testovacieho procesu.
+        foreach ($taskOldReport in @('self-test.json', 'failure.txt')) {
+            $taskOldReportPath = Join-Path (Join-Path $taskRoot 'test-results') $taskOldReport
+            if (Test-Path -LiteralPath $taskOldReportPath) { Remove-Item -LiteralPath $taskOldReportPath -Force }
+        }
         $taskArgs = @('--self-test', ('"' + (Join-Path $taskRoot 'test-results') + '"'), ('"' + (Join-Path $taskRoot 'examples') + '"'))
         $taskTest = Start-Process $taskExe -ArgumentList $taskArgs -WindowStyle Hidden -Wait -PassThru
         if ($taskTest.ExitCode -ne 0) { throw 'Kontroly zlyhali. Pozrite test-results/failure.txt.' }
         $taskReport = Get-Content (Join-Path $taskRoot 'test-results/self-test.json') -Raw | ConvertFrom-Json
+        $taskExpectedVersion = ([xml](Get-Content (Join-Path $taskRoot 'src/eFakturaViewer/eFakturaViewer.csproj'))).Project.PropertyGroup.Version
+        if ($taskReport.version -ne $taskExpectedVersion) { throw 'Protokol kontrol nepatri zostavovanej verzii.' }
         Write-Host ('Uspesne kontroly: ' + $taskReport.checks.Count)
         foreach ($taskSkip in $taskReport.skipped) { Write-Host ('Preskocene: ' + $taskSkip) -ForegroundColor Yellow }
     }

@@ -1,11 +1,10 @@
-# eFaktura Viewer 1.0.5
+# eFaktura Viewer 1.0.6
 
-Jednoduchšie nastavenie otvárania XML súborov a posúvanie faktúry klávesnicou.
+Aplikácia si pamätá vaše nastavenia pri listovaní faktúrami aj po opätovnom spustení.
 
-- Voľba **Otvárať XML v tejto aplikácii…** po registrácii otvorí priamo systémový výber predvolenej aplikácie pre **.xml**. Príponu už netreba ručne vyhľadávať v nastaveniach Windows.
-- Vyberte eFaktura Viewer a potvrďte voľbu. Zatvorenie alebo zrušenie výberu ponechá pôvodnú predvolenú aplikáciu.
-- Ak systém priamy výber neposkytne, zobrazia sa pokyny a otvoria sa všeobecné nastavenia predvolených aplikácií.
-- **Šípky hore/dole** posúvajú zobrazenú faktúru, **Page Up / Page Down** posúvajú obsah o výšku náhľadu. Fungujú aj po kliknutí na tlačidlo v záhlaví.
-- **Šípky vľavo/vpravo** naďalej prepínajú medzi faktúrami. Posun na koniec dokumentu sám neotvorí ďalší súbor.
+- Obnoví poslednú polohu a veľkosť okna, monitor aj maximalizáciu. Ak monitor nie je pripojený, okno sa zobrazí na dostupnej obrazovke.
+- Prispôsobenie výške, prispôsobenie šírke aj ručné priblíženie zostávajú zachované pri prechode na ďalšiu faktúru, zmene zdroja PDF aj po reštarte.
+- Nastavenia sa ukladajú do registra aktuálneho používateľa. Doterajšia farebná schéma, poradie súborov, posledný priečinok a voľba kontroly aktualizácií sa zachovajú.
+- Minimalizácia pred zatvorením nezmaže poslednú viditeľnú polohu. Súbežne otvorené okná si neprepisujú nezmenené voľby.
 
-Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.
+Pri prvom spustení zostáva svetlá schéma, prispôsobenie výške a pôvodná veľkosť okna podľa A4. Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.

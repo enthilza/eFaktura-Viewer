@@ -55,6 +55,8 @@ internal sealed class ViewerWindow : Window
     Task? renderTask;
     CancellationTokenSource? automaticCheck;
     ContextMenu? activeMenu;
+    readonly DispatcherTimer placementTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    bool placementReady;
     readonly Func<string, IEnumerable<string>> listDirectory;
     readonly Func<CancellationToken, Task<UpdateOffer?>> updateChecker;
     string directoryWarning = "";
@@ -62,14 +64,25 @@ internal sealed class ViewerWindow : Window
     internal ViewerWindow(string? path, Func<string, IEnumerable<string>>? listDirectory = null, Func<CancellationToken, Task<UpdateOffer?>>? updateChecker = null)
     {
         this.listDirectory = listDirectory ?? Directory.EnumerateFiles; this.updateChecker = updateChecker ?? Updates.Check;
+        fitMode = preferences.Fit; scale = preferences.Zoom;
         initialPath = path; Title = "eFaktúra Viewer";
         Width = 680; Height = 960; MinWidth = 260; MinHeight = 360;
         WindowStartupLocation = WindowStartupLocation.Manual; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResize; AllowsTransparency = true; Background = Brushes.Transparent;
         // Pri priehladnom okne bez systemoveho ramca samotne CanResize nevytvori uchopitelne hrany.
         // Pas 20 bodov zahrna 12-bodovy tien a 8 bodov viditelneho okraja; titulok nadalej ovladame sami.
         System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(20), GlassFrameThickness = new Thickness(0), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
-        SourceInitialized += (_, _) => { VisualStyle.RoundedShell(this); WindowPlacement.Center(this); };
-        ContentRendered += (_, _) => WindowPlacement.Center(this);
+        SourceInitialized += (_, _) => { VisualStyle.RoundedShell(this); WindowPlacement.Restore(this, preferences.Window); };
+        ContentRendered += (_, _) =>
+        {
+            if (placementReady) return;
+            WindowPlacement.Restore(this, preferences.Window, maximize: true); placementReady = true;
+        };
+        // Pohyb a resize priebezne zapamatame, ale nezapisujeme register pri kazdom pixeli tahu.
+        LocationChanged += (_, _) => SchedulePlacementSave();
+        SizeChanged += (_, _) => SchedulePlacementSave();
+        StateChanged += (_, _) => SavePlacement();
+        placementTimer.Tick += (_, _) => { placementTimer.Stop(); SavePlacement(); };
+        Closing += (_, _) => { placementTimer.Stop(); SavePlacement(); };
         FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"); FontSize = 13;
         using (var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico")).Stream)
         { var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(stream, System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad); Icon = decoder.Frames[^1]; }
@@ -158,6 +171,12 @@ internal sealed class ViewerWindow : Window
         UpdateFitButtons();
     }
     void SaveSettings() { try { preferences.Save(); } catch (Exception e) { status.Text = "Nastavenia sa neuložili: " + e.Message; } }
+    void SchedulePlacementSave() { if (!placementReady || closed) return; placementTimer.Stop(); placementTimer.Start(); }
+    void SavePlacement()
+    {
+        if (!placementReady || WindowPlacement.Capture(this) is not { } saved || saved == preferences.Window) return;
+        preferences.Window = saved; SaveSettings();
+    }
     void Welcome()
     {
         dock.Visibility = Visibility.Visible; filename.Text = "Otvorte XML alebo ho sem presuňte"; status.Text = "Ctrl+O  •  Pravé tlačidlo: nástroje";
@@ -240,7 +259,7 @@ internal sealed class ViewerWindow : Window
                 var frame = new Border { Background = Brushes.White, Margin = new Thickness(10, 8, 10, 12), Child = image, Tag = page.Size.Height / page.Size.Width, Effect = new DropShadowEffect { BlurRadius = 12, ShadowDepth = 2, Opacity = .17 } };
                 images.Add(image); paper.Add(frame); pages.Children.Add(frame);
             }
-            fitMode = FitMode.Height; scale = 1; LayoutPages(); scroll.ScrollToTop(); status.Text = directoryWarning; await RenderVisible();
+            LayoutPages(); scroll.ScrollToTop(); status.Text = directoryWarning; await RenderVisible();
         }
         catch (OperationCanceledException) { }
         catch (Exception e) { if (id == sequence && !closed) { ShowTree(doc.Root, "Náhľad nie je dostupný."); status.Text = Readable(e); } }
@@ -280,7 +299,7 @@ internal sealed class ViewerWindow : Window
             default: return false;
         }
     }
-    void Fit(FitMode mode) { fitMode = mode; LayoutPages(); }
+    void Fit(FitMode mode) { fitMode = mode; preferences.Fit = mode; SaveSettings(); LayoutPages(); }
     void UpdateFitButtons()
     {
         if (fitHeightButton == null) return;
@@ -289,7 +308,7 @@ internal sealed class ViewerWindow : Window
     }
     // Rucny zoom nadvazuje na prave zobrazenu sirku, inak by prve kliknutie po fit-height sposobilo skok.
     // Zaklad 794 zodpoveda pribliznej sirke A4 pri 96 DPI a pouziva ho aj LayoutPages.
-    void Zoom(double factor) { if (fitMode != FitMode.Manual && paper.Count > 0) scale = paper[0].Width / 794; fitMode = FitMode.Manual; scale = Math.Clamp(scale * factor, .1, 5); LayoutPages(); }
+    void Zoom(double factor) { if (fitMode != FitMode.Manual && paper.Count > 0) scale = paper[0].Width / 794; fitMode = FitMode.Manual; scale = Math.Clamp(scale * factor, .1, 5); preferences.Fit = fitMode; preferences.Zoom = scale; SaveSettings(); LayoutPages(); }
     Task RenderVisible()
     {
         if (closed || pdf == null) return Task.CompletedTask;
@@ -497,6 +516,7 @@ internal sealed class ViewerWindow : Window
     internal bool PageFitsHeight => paper.Count > 0 && paper[0].Height + 20 <= scroll.ActualHeight + 1;
     internal double PageWidth => paper.Count > 0 ? paper[0].Width : 0;
     internal void TestFit(FitMode mode) => Fit(mode);
+    internal void TestZoom(double factor) => Zoom(factor);
     internal bool EmbeddedSwitchChecked => embeddedSwitch.IsChecked == true;
     internal bool AttachmentPickerVisible => sources.Visibility == Visibility.Visible;
 }

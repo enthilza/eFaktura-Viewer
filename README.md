@@ -12,18 +12,24 @@ Spustite EXE a pretiahnite XML do okna, použite Ctrl+O alebo odovzdajte cestu a
 eFakturaViewer.exe "C:\Faktury\faktura.xml"
 ```
 
-- Predvolený náhľad sa vždy generuje z XML a prispôsobí výške. Prepínač **Vložené PDF** zobrazí prílohu; pri viacerých prílohách sa objaví výber konkrétneho PDF. Aktuálny zdroj je označený v záhlaví.
+- Náhľad sa vždy generuje z XML. Pri prvom spustení sa prispôsobí výške; potom sa zachová posledná voľba výšky, šírky alebo ručného priblíženia aj pri prechode na ďalšiu faktúru a po reštarte. Prepínač **Vložené PDF** zobrazí prílohu; pri viacerých prílohách sa objaví výber konkrétneho PDF. Aktuálny zdroj je označený v záhlaví.
 - **BIS3 · ZÁKLADNÝ** / **BIS3 · ROZŠÍRENÝ FMCG** označuje rozpoznaný obsah. FMCG sa rozpoznáva podľa známych vlastností `AdditionalItemProperty`; nejde o formálne overenie platnosti profilu.
 - **Šípky vľavo/vpravo** prechádzajú XML v rovnakom priečinku, prirodzene zoradené podľa názvu. Na konci sa pokračuje od začiatku. Poradie možno obrátiť v ponuke.
 - Pri **jedinom XML** sa spodný panel skryje. Horné ovládanie prispôsobenia výške/šírke, témy, aktualizácie a príloh zostáva dostupné.
 - **Koliesko** posúva strany, **Ctrl + koliesko** mení priblíženie. Horné tlačidlá **Prispôsobiť výške** a **Prispôsobiť šírke** prepnú spôsob zobrazenia.
 - **Šípky hore/dole** posúvajú zobrazenú faktúru. **Page Up / Page Down** posúvajú obsah o výšku náhľadu, aj keď má fokus tlačidlo v záhlaví. Na kraji dokumentu sa posun zastaví; medzi faktúrami naďalej prepínajú iba šípky vľavo/vpravo. Otvorená ponuka, výber prílohy a strom XML si zachovávajú vlastné ovládanie.
-- Každé nové okno sa otvorí na monitore pod kurzorom, vodorovne v strede pracovnej plochy. Spodný okraj je 2 fyzické pixely nad jej spodnou hranou, teda nad panelom úloh umiestneným dole. Výška je najviac 97 % monitora, pomer strán A4; dostupná plocha bez panela úloh môže okno zmenšiť. Okno možno presúvať za záhlavie a meniť jeho veľkosť ťahaním za ktorúkoľvek hranu alebo roh.
+- Okno si pamätá posledný monitor, polohu, veľkosť a maximalizáciu. Pri odpojení monitora alebo zmene mierky Windows sa upraví do dostupnej pracovnej plochy. Minimalizácia pred zatvorením nezmení posledný viditeľný stav. Pri prvom spustení sa použije monitor pod kurzorom, pomer A4, najviac 97 % výšky obrazovky a spodný okraj 2 pixely nad panelom úloh. Okno možno presúvať za záhlavie a meniť jeho veľkosť ťahaním za ktorúkoľvek hranu alebo roh.
 - Texty rozhrania, dialógov, hlásenia a vlastné popisy v PDF používajú spisovnú slovenčinu s diakritikou. Obsah faktúr a neznáme označenia XML zostávajú pôvodné.
 - **Ctrl+S** uloží zobrazené PDF, **Ctrl+P** otvorí tlač, **Esc** zavrie aplikáciu.
 - Horné tlačidlá **Prepnúť schému** a **Aktualizovať aplikáciu** prepínajú tému a kontrolujú aktualizácie. Ďalšie funkcie sú pod ⋯ a v kontextovej ponuke. Vlastné oznamy, potvrdenia a priebeh aktualizácie používajú rovnaký zaoblený dizajn; systémový výber súboru a tlačiarne zabezpečuje Windows.
 - Pri inom XML sa zobrazí **„Toto nie je eFaktúra.“** a rozbaľovací strom prvkov a atribútov. Šípky v aktívnom strome ovládajú strom; na ďalší súbor použite spodné tlačidlá alebo kontextovú ponuku.
 - Pri poškodenom XML, DTD, neplatnej prílohe alebo nedostupnom súbore sa zobrazí chyba; ostatné súbory možno ďalej prezerať.
+
+## Zapamätané nastavenia
+
+Poloha a veľkosť okna, maximalizácia, prispôsobenie výške/šírke, ručné priblíženie, farebná schéma, poradie súborov, posledný priečinok a kontrola aktualizácií sa ukladajú pre aktuálneho používateľa do `HKEY_CURRENT_USER\Software\eFakturaViewer`, do hodnoty `Settings`. Platia aj po premiestnení alebo aktualizácii EXE na tom istom počítači. Každý používateľ Windows má vlastné nastavenia.
+
+Nastavenia zo starších verzií v `%LOCALAPPDATA%\eFakturaViewer\settings.json` sa pri prvom uložení prevezmú do registra. Pôvodný súbor sa nemení; po prevzatí má register prednosť. Viac otvorených okien ukladá iba zmenené voľby, aby si navzájom neprepisovali ostatné nastavenia. Testy používajú samostatnú dočasnú vetvu registra.
 
 ## Otváranie dvojklikom
 
