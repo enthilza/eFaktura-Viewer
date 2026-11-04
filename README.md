@@ -17,6 +17,7 @@ eFakturaViewer.exe "C:\Faktury\faktura.xml"
 - **Šípky vľavo/vpravo** prechádzajú XML v rovnakom priečinku, prirodzene zoradené podľa názvu. Na konci sa pokračuje od začiatku. Poradie možno obrátiť v ponuke.
 - Pri **jedinom XML** sa spodný panel skryje. Horné ovládanie prispôsobenia výške/šírke, témy, aktualizácie a príloh zostáva dostupné.
 - **Koliesko** posúva strany, **Ctrl + koliesko** mení priblíženie. Horné tlačidlá **Prispôsobiť výške** a **Prispôsobiť šírke** prepnú spôsob zobrazenia.
+- **Šípky hore/dole** posúvajú zobrazenú faktúru. **Page Up / Page Down** posúvajú obsah o výšku náhľadu, aj keď má fokus tlačidlo v záhlaví. Na kraji dokumentu sa posun zastaví; medzi faktúrami naďalej prepínajú iba šípky vľavo/vpravo. Otvorená ponuka, výber prílohy a strom XML si zachovávajú vlastné ovládanie.
 - Každé nové okno sa otvorí na monitore pod kurzorom, vodorovne v strede pracovnej plochy. Spodný okraj je 2 fyzické pixely nad jej spodnou hranou, teda nad panelom úloh umiestneným dole. Výška je najviac 97 % monitora, pomer strán A4; dostupná plocha bez panela úloh môže okno zmenšiť. Okno možno presúvať za záhlavie a meniť jeho veľkosť ťahaním za ktorúkoľvek hranu alebo roh.
 - Texty rozhrania, dialógov, hlásenia a vlastné popisy v PDF používajú spisovnú slovenčinu s diakritikou. Obsah faktúr a neznáme označenia XML zostávajú pôvodné.
 - **Ctrl+S** uloží zobrazené PDF, **Ctrl+P** otvorí tlač, **Esc** zavrie aplikáciu.
@@ -26,7 +27,7 @@ eFakturaViewer.exe "C:\Faktury\faktura.xml"
 
 ## Otváranie dvojklikom
 
-V kontextovej ponuke zvoľte **Otvárať XML v tejto aplikácii…**. Aplikácia sa zaregistruje do ponuky „Otvoriť v programe“ a otvorí nastavenia Windows. Tam ju môžete nastaviť pre `.xml`, prípadne použite pravé tlačidlo na XML → Otvoriť v programe → Vybrať inú aplikáciu.
+V kontextovej ponuke zvoľte **Otvárať XML v tejto aplikácii…**. Aplikácia sa zaregistruje do ponuky „Otvoriť v programe“ a otvorí priamo systémový výber predvolenej aplikácie pre **`.xml`**. Vyberte eFaktura Viewer a potvrďte voľbu; príponu už netreba vyhľadávať. Ak daný Windows priamy výber neposkytne, aplikácia zobrazí pokyny a otvorí všeobecné nastavenia predvolených aplikácií. Alternatívne použite pravé tlačidlo na XML → Otvoriť v programe → Vybrať inú aplikáciu.
 
 Výber predvolenej aplikácie potvrdí používateľ. Program neobchádza Windows UserChoice. Priradenie aplikácie sa vzťahuje na všetky XML; dokumenty, ktoré nie sú faktúrami, sa zobrazia ako strom. Po premiestnení EXE registráciu zopakujte.
 
@@ -78,7 +79,7 @@ Prevádzkové limity: XML 30 MB, 2 000 položiek, náhľad PDF 1 000 strán. PDF
 
 ## Overenie
 
-Verzia 1.0.4 obsahuje regresné kontroly v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný BIS, FMCG, dobropis, nezmenené vstupy, prefixy menných priestorov XML, DTD/XXE vrátane UTF-16, poškodené XML/PDF/base64, viac príloh, presnosť cien a dátumov, 2 000 položiek, dlhý text, podpisy a rýchle listovanie počas vykresľovania. Ďalej overujú obnovu po chybe aktualizácie, ukončenie zamrznutej sondy, zamknutú zálohu, upratovanie, izoláciu nastavení, rozmery a úchopy okna, obe témy, modálne okná a horné nástroje pri jedinom XML. Aktuálny výsledok je v `test-results/self-test.json`.
+Regresné kontroly sú v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný BIS, FMCG, dobropis, nezmenené vstupy, prefixy menných priestorov XML, DTD/XXE vrátane UTF-16, poškodené XML/PDF/base64, viac príloh, presnosť cien a dátumov, 2 000 položiek, dlhý text, podpisy a rýchle listovanie počas vykresľovania. Ďalej overujú obnovu po chybe aktualizácie, ukončenie zamrznutej sondy, zamknutú zálohu, upratovanie, izoláciu nastavení, rozmery a úchopy okna, obe témy, modálne okná a horné nástroje pri jedinom XML. Aktuálny výsledok je v `test-results/self-test.json`.
 
 V odpojenej relácii Windows nemusí WPF vykresliť ani nezávislú grafickú sondu. Vizuálne kontroly okna sú vtedy označené ako **preskočené**, nie úspešné. PDF je možné vykresliť a overiť nezávisle. Ručné overenie fyzickej tlačiarne, monitorov s rôznym DPI a výpadkov konkrétneho sieťového disku zostáva na cieľovom PC.
 

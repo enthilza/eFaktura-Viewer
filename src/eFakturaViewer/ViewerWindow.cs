@@ -127,6 +127,7 @@ internal sealed class ViewerWindow : Window
             if (e.Key == Key.Escape) { Close(); e.Handled = true; }
             else if (e.Key == Key.Left && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(-1); e.Handled = true; }
             else if (e.Key == Key.Right && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(1); e.Handled = true; }
+            else if (!showingXml && pdf != null && Keyboard.Modifiers == ModifierKeys.None && !sources.IsKeyboardFocusWithin && ScrollDocument(e.Key)) e.Handled = true;
             else if (e.Key == Key.O && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) OpenDialog();
             else if (e.Key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) SavePdf();
             else if (e.Key == Key.P && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) _ = Print();
@@ -265,6 +266,20 @@ internal sealed class ViewerWindow : Window
         UpdateFitButtons();
         _ = RenderVisible();
     }
+    bool ScrollDocument(Key key)
+    {
+        // Posun patri PDF aj vtedy, ked po kliknuti ostal fokus na hornom tlacidle.
+        // Udalost spotrebujeme aj na kraji dokumentu, aby sipka nepresuvala fokus.
+        // XML strom, vyber prilohy a otvorena ponuka si ponechavaju vlastne klavesy.
+        switch (key)
+        {
+            case Key.Up: scroll.LineUp(); return true;
+            case Key.Down: scroll.LineDown(); return true;
+            case Key.PageUp: scroll.PageUp(); return true;
+            case Key.PageDown: scroll.PageDown(); return true;
+            default: return false;
+        }
+    }
     void Fit(FitMode mode) { fitMode = mode; LayoutPages(); }
     void UpdateFitButtons()
     {
@@ -380,7 +395,7 @@ internal sealed class ViewerWindow : Window
     {
         // Registrujeme iba ponuku Otvorit v programe. Predvolbu .xml potvrdi pouzivatel vo Windows,
         // pretoze pripona patri aj konfiguraciam a inym dokumentom, nielen fakturam.
-        if (!AppDialog.Confirm(this, "Otváranie XML", "Zaregistrovať eFaktúra Viewer do ponuky Otvoriť v programe pre XML? Predvolenú aplikáciu si potom vyberiete vo Windows.", "Zaregistrovať")) return;
+        if (!AppDialog.Confirm(this, "Otváranie XML", "Zaregistrovať eFaktúra Viewer do ponuky Otvoriť v programe pre XML? Potom sa otvorí výber predvolenej aplikácie priamo pre súbory .xml.", "Zaregistrovať")) return;
         try
         {
             var exe = Environment.ProcessPath!;
@@ -388,7 +403,11 @@ internal sealed class ViewerWindow : Window
             using (var command = app.CreateSubKey(@"shell\open\command")) command.SetValue("", "\"" + exe + "\" \"%1\"");
             using (var types = app.CreateSubKey("SupportedTypes")) types.SetValue(".xml", "");
             using (var list = Registry.CurrentUser.CreateSubKey(@"Software\Classes\.xml\OpenWithList\eFakturaViewer.exe")) { }
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps") { UseShellExecute = true });
+            if (!FileAssociations.TryShowXmlPicker(new System.Windows.Interop.WindowInteropHelper(this).Handle))
+            {
+                AppDialog.Info(this, "Otváranie XML", "Windows neotvoril priamy výber aplikácie pre .xml. V nasledujúcich nastaveniach vyhľadajte .xml a vyberte eFaktúra Viewer.");
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps") { UseShellExecute = true });
+            }
         }
         catch (Exception e) { AppDialog.Info(this, "Otváranie XML", e.Message); }
     }
@@ -437,6 +456,7 @@ internal sealed class ViewerWindow : Window
         return length > 0 && length < buffer.Capacity ? buffer.ToString() : full;
     }
     internal SemaphoreSlim RenderGateForTest => rendering;
+    internal ScrollViewer ScrollForTest => scroll;
     internal bool FirstPageRendered => images.Count > 0 && images[0].Source != null;
     internal string StatusForTest => status.Text;
     internal bool UpdateAvailable => update != null && updateButton.ToolTip.ToString()!.Contains(update.Version);

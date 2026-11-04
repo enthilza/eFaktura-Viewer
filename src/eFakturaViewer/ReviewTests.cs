@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
@@ -70,6 +71,38 @@ internal static class ReviewTests
         try { using var unused = await PdfView.Open(oversized); } catch (PdfPageLimitException e) { limitRejected = e.Message.Contains("1001"); }
         Check(limitRejected, "Nadlimitne PDF ma vlastne zrozumitelne hlasenie");
         var testFile = Path.Combine(examples, "01_zaklad.xml");
+        // Skutocna WPF udalost z horneho tlacidla musi posunut viacstranovy dokument,
+        // nie prejst na dalsiu fakturu. Netestujeme iba samotny pomocny switch.
+        var keyboardPath = Path.Combine(output, "review-klavesnica.xml"); compactItems.Save(keyboardPath);
+        var keyboardWindow = new ViewerWindow(null, _ => new[] { keyboardPath, testFile }); keyboardWindow.Show();
+        try
+        {
+            await keyboardWindow.OpenPath(keyboardPath); keyboardWindow.TestFit(ViewerWindow.FitMode.Width); keyboardWindow.UpdateLayout();
+            var keyboardScroll = keyboardWindow.ScrollForTest;
+            var keyboardOrigin = (UIElement)keyboardWindow.HeaderToolsForTest.Children[0]; keyboardOrigin.Focus();
+            async Task<KeyEventArgs> Press(Key key)
+            {
+                var args = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(keyboardWindow)!, Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                keyboardOrigin.RaiseEvent(args);
+                await keyboardWindow.Dispatcher.InvokeAsync(keyboardWindow.UpdateLayout, DispatcherPriority.ApplicationIdle);
+                return args;
+            }
+            var number = keyboardWindow.OpenedNumber;
+            Check(keyboardScroll.ScrollableHeight > keyboardScroll.ViewportHeight, "Viacstranova faktura pre test klavesnice ma posuvny obsah");
+            Check((await Press(Key.Down)).Handled && keyboardScroll.VerticalOffset > 0 && keyboardWindow.OpenedNumber == number, "Sipka dole posunie PDF aj s fokusom v zahlavi");
+            Check((await Press(Key.Up)).Handled && keyboardScroll.VerticalOffset == 0, "Sipka hore vrati posun PDF");
+            Check((await Press(Key.PageDown)).Handled && Math.Abs(keyboardScroll.VerticalOffset - keyboardScroll.ViewportHeight) < 1 && keyboardWindow.OpenedNumber == number, "Page Down posunie o vysku nahladu a nezmeni fakturu");
+            Check((await Press(Key.PageUp)).Handled && keyboardScroll.VerticalOffset == 0, "Page Up vrati predchadzajucu cast PDF");
+            keyboardScroll.ScrollToEnd(); keyboardWindow.UpdateLayout();
+            Check((await Press(Key.PageDown)).Handled && keyboardScroll.VerticalOffset == keyboardScroll.ScrollableHeight && keyboardWindow.OpenedNumber == number, "Page Down na konci neprepne fakturu");
+            await Press(Key.Right);
+            for (int i = 0; i < 500 && (keyboardWindow.OpenedNumber == number || !keyboardWindow.FirstPageRendered); i++) await Task.Delay(10);
+            Check(keyboardWindow.OpenedNumber != number && keyboardWindow.FirstPageRendered, "Sipka doprava nadalej prepina faktury");
+            await Press(Key.Left);
+            for (int i = 0; i < 500 && (keyboardWindow.OpenedNumber != number || !keyboardWindow.FirstPageRendered); i++) await Task.Delay(10);
+            Check(keyboardWindow.OpenedNumber == number && keyboardWindow.FirstPageRendered, "Sipka dolava sa vrati na povodnu fakturu");
+        }
+        finally { keyboardWindow.Close(); }
         var restricted = new ViewerWindow(null, _ => throw new UnauthorizedAccessException()); restricted.Show();
         await restricted.OpenPath(testFile);
         Check(restricted.HasPdf && !restricted.NavigationVisible && restricted.StatusForTest.Length > 0, "Necitatelny zoznam priečinka neblokuje otvorenie XML"); restricted.Close();
