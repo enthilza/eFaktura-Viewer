@@ -165,9 +165,10 @@ internal static class SelfTest
         if (!canRender) foreach (var p in Directory.GetFiles(output, "viewer-*.png")) File.Delete(p);
         window.Close();
         await PreferenceTests.Run(output, examples, checks);
+        await WorkflowTests.Run(output, examples, checks, canRender);
         File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = typeof(App).Assembly.GetName().Version!.ToString(3) }, new JsonSerializerOptions { WriteIndented = true }));
     }
-    static void SaveWindow(Window window, string path)
+    internal static void SaveWindow(Window window, string path)
     {
         var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32); bitmap.Render(window);
         var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap)); using var stream = File.Create(path); png.Save(stream);

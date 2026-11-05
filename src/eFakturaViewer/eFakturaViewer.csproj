@@ -2,7 +2,7 @@
  <PropertyGroup>
   <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
   <UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
-  <AssemblyName>eFakturaViewer</AssemblyName><Version>1.0.9</Version>
+  <AssemblyName>eFakturaViewer</AssemblyName><Version>1.1.0</Version>
   <ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>Assets/app.ico</ApplicationIcon>
   <!-- WPF a dokumentove kniznice vytvaraju cast objektov nepriamo. Trimming tu nezapinat
        bez samostatneho overenia; symboly v EXE pomahaju urcit riadok chyby bez dalsieho PDB suboru. -->

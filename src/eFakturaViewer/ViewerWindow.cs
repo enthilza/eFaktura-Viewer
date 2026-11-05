@@ -107,6 +107,7 @@ internal sealed partial class ViewerWindow : Window
         viewing.Children.Add(fitHeightButton); viewing.Children.Add(fitWidthButton);
         viewing.Children.Add(CreateZoomControl()); viewing.Children.Add(embeddedSwitch);
         Grid.SetRow(sources, 3); Grid.SetColumnSpan(sources, 2); header.Children.Add(sources);
+        InitializeWorkflows();
         PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (!CanDragHeader(e.OriginalSource as DependencyObject, e.GetPosition(this))) return;
@@ -137,6 +138,7 @@ internal sealed partial class ViewerWindow : Window
         {
             // Sipky v otvorenom vybere a v XML strome patria danemu prvku, nie listovaniu fakturami.
             if (activeMenu?.IsOpen == true || sources.IsDropDownOpen || e.OriginalSource is TextBox) return;
+            if (TryWorkflowKey(e.Key)) { e.Handled = true; return; }
             if (e.Key == Key.Escape) { Close(); e.Handled = true; }
             else if (e.Key == Key.Left && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(-1); e.Handled = true; }
             else if (e.Key == Key.Right && (!showingXml || !tree.IsKeyboardFocusWithin)) { Navigate(1); e.Handled = true; }
@@ -186,16 +188,19 @@ internal sealed partial class ViewerWindow : Window
     void OpenDialog() { var d = new OpenFileDialog { Filter = "XML súbory|*.xml|Všetky súbory|*.*", InitialDirectory = preferences.LastDirectory }; if (d.ShowDialog(this) == true) _ = OpenPath(d.FileName); }
     internal async Task OpenPath(string path)
     {
+        if (movingInvoices) return;
         // Zrusenie je kooperativne a nie kazda operacia ho podporuje. Sequence preto navyse
         // brani starsiemu vysledku, aby po await prepisal novsi dokument v tom istom okne.
         var id = ++sequence; request.Cancel(); request.Dispose(); request = new(); var token = request.Token;
         files.Clear(); counter.Text = ""; dock.Visibility = Visibility.Collapsed; directoryWarning = ""; currentPath = null; invoice = null; ClearPdf(); tree.Items.Clear(); showingXml = false; badge.Text = "";
+        workflowDirectory = null; RefreshWorkflowButtons();
         filename.Text = Path.GetFileName(path); Title = filename.Text + " — eFaktúra Viewer"; status.Text = "Načítavam dokument…";
         sourceChanging = true; sources.Items.Clear(); embeddedSwitch.IsChecked = false; embeddedSwitch.IsEnabled = false; sources.Visibility = Visibility.Collapsed; sourceChanging = false;
         try
         {
             currentPath = CanonicalPath(path); var loadPath = currentPath;
             var directory = Path.GetDirectoryName(currentPath)!;
+            workflowDirectory = directory;
             List<string> listing;
             try { listing = await Task.Run(() => listDirectory(directory).Where(p => string.Equals(Path.GetExtension(p), ".xml", StringComparison.OrdinalIgnoreCase)).Select(CanonicalPath).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), token); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -211,7 +216,7 @@ internal sealed partial class ViewerWindow : Window
             counter.Text = $"{files.FindIndex(x => string.Equals(x, currentPath, StringComparison.OrdinalIgnoreCase)) + 1} / {files.Count}";
             preferences.LastDirectory = directory; SaveSettings();
             var loaded = await Task.Run(() => Invoice.Load(loadPath, token), token);
-            if (id != sequence || closed) return; invoice = loaded;
+            if (id != sequence || closed) return; invoice = loaded; RefreshWorkflows();
             if (!loaded.IsInvoice) { ShowTree(loaded.Xml.Root, "Toto nie je eFaktúra."); status.Text = directoryWarning.Length > 0 ? directoryWarning : "XML štruktúra  •  Pravé tlačidlo: nástroje a ďalší súbor"; return; }
             badge.Text = loaded.Extended ? "BIS3 · ROZŠÍRENÝ FMCG" : "BIS3 · ZÁKLADNÝ";
             sourceChanging = true; foreach (var a in loaded.Attachments) sources.Items.Add(a.Name); sources.SelectedIndex = loaded.Attachments.Count > 0 ? 0 : -1; embeddedSwitch.IsEnabled = loaded.Attachments.Count > 0; sourceChanging = false;
@@ -219,7 +224,7 @@ internal sealed partial class ViewerWindow : Window
             await SelectSource(0);
         }
         catch (OperationCanceledException) { }
-        catch (Exception e) { if (id == sequence && !closed) { ShowTree(null, "Súbor sa nepodarilo otvoriť."); status.Text = Readable(e); } }
+        catch (Exception e) { if (id == sequence && !closed) { ShowTree(null, "Súbor sa nepodarilo otvoriť."); status.Text = Readable(e); RefreshWorkflowButtons(); } }
     }
     static string Readable(Exception e) => e is System.Xml.XmlException ? "XML nie je správne zapísané alebo obsahuje nepovolené DTD. " + e.Message : e.Message;
     async Task SelectSource(int index)
@@ -375,6 +380,8 @@ internal sealed partial class ViewerWindow : Window
         var m = new ContextMenu { Background = dock.Background, Foreground = Foreground }; activeMenu = m;
         void Item(string text, Action action, bool enabled = true) { var i = new MenuItem { Header = text, IsEnabled = enabled }; i.Click += (_, _) => action(); m.Items.Add(i); }
         Item("Otvoriť XML…   Ctrl+O", OpenDialog);
+        Item("Cieľové priečinky…", ConfigureWorkflows);
+        if (workflowState.Folders.Count > 0) Item("Presunúť faktúry", () => _ = MoveInvoices(), workflowDirectory != null && files.Count > 0 && directoryWarning.Length == 0);
         if (files.Count > 1) { Item("Predošlý XML", () => Navigate(-1)); Item("Ďalší XML", () => Navigate(1)); Item(preferences.ReverseSort ? "Zoradiť podľa názvu A → Z" : "Zoradiť podľa názvu Z → A", () => { preferences.ReverseSort = !preferences.ReverseSort; SaveSettings(); if (currentPath != null) _ = OpenPath(currentPath); }); }
         m.Items.Add(new Separator());
         if (invoice?.IsInvoice == true)
@@ -392,7 +399,7 @@ internal sealed partial class ViewerWindow : Window
         Item(update == null ? "Aktualizovať" : "Nainštalovať " + update.Version, () => _ = CheckUpdates(true));
         Item((preferences.CheckUpdates ? "✓ " : "") + "Kontrolovať aktualizácie pri štarte", () => { preferences.CheckUpdates = !preferences.CheckUpdates; SaveSettings(); });
         Item("Otvárať XML v tejto aplikácii…", Associations);
-        Item("O aplikácii", () => AppDialog.Info(this, "eFaktúra Viewer", "Verzia " + typeof(App).Assembly.GetName().Version!.ToString(3) + "\nLokálny prezerač BIS3 a FMCG.\nXML sa nikdy nemení. Náhľad nepotvrdzuje súlad s BIS.\n\nPDFsharp / MigraDoc 6.2.0 (MIT)\nPDF zobrazuje Windows.\nZdrojový kód: github.com/enthilza/eFaktura-Viewer"));
+        Item("O aplikácii", () => AppDialog.Info(this, "eFaktúra Viewer", "Verzia " + typeof(App).Assembly.GetName().Version!.ToString(3) + "\nLokálny prezerač a triedenie BIS3 a FMCG.\nObsah XML sa nemení. Presun sa vykoná iba na váš pokyn. Náhľad nepotvrdzuje súlad s BIS.\n\nPDFsharp / MigraDoc 6.2.0 (MIT)\nPDF zobrazuje Windows.\nZdrojový kód: github.com/enthilza/eFaktura-Viewer"));
         return m;
     }
     void SavePdf()

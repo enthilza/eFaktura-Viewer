@@ -42,7 +42,10 @@ internal sealed class AppDialog : Window
     {
         var window = new AppDialog(owner, title, message); var ok = VisualStyle.Button("", "Rozumiem", "Zavrieť", window.Close); ok.IsDefault = true; window.footer.Children.Add(ok); window.ShowDialog();
     }
-    internal static bool Work(Window owner, string title, string text, Func<IProgress<int>, CancellationToken, Task> operation)
+    internal void AddContent(UIElement content) => body.Children.Insert(body.Children.Count - 1, content);
+    internal StackPanel Actions => footer;
+    internal void Message(string text) => message.Text = text;
+    internal static bool Work(Window owner, string title, string text, Func<IProgress<int>, CancellationToken, Task> operation, Func<int, string>? progressText = null)
     {
         using var cancellation = new CancellationTokenSource();
         var window = new AppDialog(owner, title, text); bool finished = false, cancelled = false; Exception? error = null;
@@ -58,7 +61,7 @@ internal sealed class AppDialog : Window
             {
                 // Progress vznikne na UI vlakne a vracia sem aktualizacie z Task.Run.
                 // Priznak finished ignoruje oneskorene hlasenia po ukonceni operacie.
-                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = p >= 100 ? "Overujem digitálny podpis…" : $"Sťahujem aktualizáciu · {p} %"; } });
+                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = progressText?.Invoke(p) ?? (p >= 100 ? "Overujem digitálny podpis…" : $"Sťahujem aktualizáciu · {p} %"); } });
                 await Task.Run(() => operation(progress, cancellation.Token));
             }
             catch (OperationCanceledException) { cancelled = true; }

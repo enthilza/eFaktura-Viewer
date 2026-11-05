@@ -33,9 +33,25 @@ Generovaný náhľad používa prehľadné sivé bloky: výraznú sumu na úhrad
 
 Technické identifikátory Peppol, atribúty XML, opakované daňové kódy partnerov a zoznamy príloh náhľad nezapĺňajú. Úplný obsah zostáva v strome XML. Náhľad zachováva obchodné mená, adresy, IČO a daňové identifikátory, referenciu platby, poznámky a platobné podmienky. Sumy, preddavky, zľavy a zaokrúhlenie preberá z XML bez prepočítavania. Cena za viac kusov zostáva jasne označená, daň v inej mene má vlastné označenie a dlhé texty či veľa položiek pokračujú na ďalších stranách. Vložené PDF sa nemení.
 
+## Triedenie faktúr do priečinkov
+
+V ponuke **⋯ → Cieľové priečinky…** pridajte priečinky, pomenujte ich zrozumiteľne a nastavte ich poradie. Napríklad **Účtovníctvo**, **Na schválenie** a **Reklamácie**. Prvý priečinok je predvolený pre každú faktúru bez vlastného priradenia. Názov v aplikácii nemení názov priečinka na disku.
+
+Hore sa zobrazia tlačidlá **1 · Účtovníctvo**, **2 · Na schválenie** a ďalšie podľa vašich nastavení. Vybraný cieľ práve zobrazenej faktúry je zvýraznený. Úplnú cestu uvidíte po podržaní myši nad tlačidlom. Cieľ vyberiete kliknutím alebo klávesmi **1 až 9**; **0** označuje desiaty cieľ. Funguje aj numerická klávesnica. Ďalšie priečinky sú dostupné kliknutím, tlačidlá sa zalamujú do viacerých riadkov. Šípky vľavo/vpravo naďalej listujú faktúrami.
+
+Priradenie zatiaľ nič nepresúva. Ciele, ich názvy, poradie a jednotlivé priradenia sa pamätajú aj po zatvorení aplikácie. Zmena poradia zachová konkrétny vybraný cieľ; nepriradené faktúry použijú nový prvý priečinok. Odstránenie cieľa z nastavení nemaže priečinok ani jeho súbory; jeho priradenia sa vrátia k predvoľbe.
+
+**Presunúť faktúry** spracuje všetky rozpoznané XML faktúry a dobropisy priamo v otvorenom priečinku, aj tie, ktoré ste ešte neprezreli. Nepriradené dokumenty presunie do prvého cieľa. Každý XML sa presunie celý, vrátane vložených príloh, bez zmeny obsahu. Samostatné PDF, ostatné súbory, iné XML a podpriečinky zostávajú na mieste. Nové súbory doručené počas presunu počkajú na ďalšie triedenie.
+
+Pri rovnakom názve sa nič neprepíše: použije sa voľný názov, napríklad `faktura (2).xml`. Cieľ zhodný so zdrojovým priečinkom sa odmietne. Zamknuté súbory, odkazy, súbory iba na čítanie, nečitateľné XML a dokumenty zmenené od priradenia zostanú na mieste s vysvetlením. Zmenený doklad treba znova otvoriť a priradiť. Medzi diskami sa najprv overí úplná kópia, až potom sa odstráni zdroj. Ak odstránenie zlyhá, hlásenie uvedie cestu k zachovanej kópii.
+
+Po úspešnom presune sa náhľad vyprázdni. Pri chybe alebo prerušení sa zobrazí výsledok a zostávajúci dokument; už dokončené presuny sa automaticky nevracajú. Ak nenastavíte žiadne ciele, panel triedenia sa nezobrazí a aplikácia funguje ako bežný prezerač.
+
 ## Zapamätané nastavenia
 
 Poloha a veľkosť okna, maximalizácia, prispôsobenie výške/šírke, ručné priblíženie, farebná schéma, poradie súborov, posledný priečinok a kontrola aktualizácií sa ukladajú pre aktuálneho používateľa do `HKEY_CURRENT_USER\Software\eFakturaViewer`, do hodnoty `Settings`. Platia aj po premiestnení alebo aktualizácii EXE na tom istom počítači. Každý používateľ Windows má vlastné nastavenia.
+
+Cieľové priečinky a priradenia faktúr sa ukladajú v tej istej vetve registra do samostatnej hodnoty `Workflows`. Obsahuje cesty, názvy a lokálne odtlačky obsahu na rozpoznanie zmenenej faktúry; samotné XML ani PDF sa do registra neukladajú. Tieto údaje sa nikam neodosielajú.
 
 Nastavenia zo starších verzií v `%LOCALAPPDATA%\eFakturaViewer\settings.json` sa pri prvom uložení prevezmú do registra. Pôvodný súbor sa nemení; po prevzatí má register prednosť. Viac otvorených okien ukladá iba zmenené voľby, aby si navzájom neprepisovali ostatné nastavenia. Testy používajú samostatnú dočasnú vetvu registra.
 
@@ -87,7 +103,7 @@ Súkromný kľúč je **mimo projektu** v `%LOCALAPPDATA%\eFakturaViewerPublishe
 
 Podporované sú Invoice a CreditNote, položky, základné množstvo ceny, DPH, zľavy/prirážky a platby. Profil FMCG sa rozpoznáva podľa 38 známych vlastností. Položky tvoria jednu súvislú tabuľku základných údajov; technické doplnky a údaje FMCG sa pod položkami nevypisujú. Všetky údaje vrátane neznámych vlastností zostávajú v strome XML. PDF nie je potvrdením platnosti BIS ani zhody s vloženou prílohou.
 
-Vstupné súbory sa iba čítajú; nie je tu evidencia, import do databázy ani úhrady. PDF sa vytvára v pamäti. Faktúry sa nikam neodosielajú. Internet sa používa iba na aktualizácie z GitHubu. Parser XML zakazuje DTD a externé entity; externé prílohy sa automaticky nesťahujú.
+Pri prezeraní sa vstupné súbory iba čítajú. Presun rozpoznaných XML sa vykoná výlučne po stlačení **Presunúť faktúry** do používateľom nastavených priečinkov; obsah sa nemení. Nie je tu evidencia, import do databázy ani úhrady. PDF sa vytvára v pamäti. Dokumenty sa neodosielajú na žiadnu externú službu; cieľ presunu môže byť aj používateľom zvolený sieťový priečinok. Internet sa používa na aktualizácie z GitHubu. Parser XML zakazuje DTD a externé entity; externé prílohy sa automaticky nesťahujú.
 
 Prevádzkové limity: XML 30 MB, 2 000 položiek, náhľad PDF 1 000 strán. PDF nad limitom sa dá uložiť celé a údaje prezrieť v strome XML. Pri prílohe chránenej heslom alebo nečitateľnej prílohe sa zobrazí chyba; prepínačom sa dá vrátiť ku generovanému náhľadu. Tlač pripravuje jednotlivé strany na požiadanie; aplikácia neuchováva bitmapy celého dokumentu naraz. Limity nie sú limitmi štandardu BIS.
 
@@ -96,6 +112,8 @@ Prevádzkové limity: XML 30 MB, 2 000 položiek, náhľad PDF 1 000 strán. PDF
 Regresné kontroly sú v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný BIS, FMCG, dobropis, nezmenené vstupy, prefixy menných priestorov XML, DTD/XXE vrátane UTF-16, poškodené XML/PDF/base64, viac príloh, presnosť cien a dátumov, 2 000 položiek, dlhý text, podpisy a rýchle listovanie počas vykresľovania. Ďalej overujú obnovu po chybe aktualizácie, ukončenie zamrznutej sondy, zamknutú zálohu, upratovanie, izoláciu nastavení, rozmery a úchopy okna, obe témy, modálne okná a horné nástroje pri jedinom XML. Aktuálny výsledok je v `test-results/self-test.json`.
 
 V odpojenej relácii Windows nemusí WPF vykresliť ani nezávislú grafickú sondu. Vizuálne kontroly okna sú vtedy označené ako **preskočené**, nie úspešné. PDF je možné vykresliť a overiť nezávisle. Ručné overenie fyzickej tlačiarne, monitorov s rôznym DPI a výpadkov konkrétneho sieťového disku zostáva na cieľovom PC.
+
+`WorkflowTests.cs` používa výlučne pracovné kópie syntetických faktúr a izolovanú vetvu registra. Overuje priradenia, kolízie názvov, zachovanie iných súborov, zmenený a zamknutý zdroj, prerušenie dávky, kopírovanie s overením obsahu, číselné klávesy, pomenované tlačidlá a vyprázdnenie náhľadu po presune.
 
 ## Zdrojový kód
 
