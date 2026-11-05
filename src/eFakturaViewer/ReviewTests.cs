@@ -216,6 +216,15 @@ internal static class ReviewTests
         Check(File.ReadAllText(target) == "pôvodné", "Zlyhanie sondy obnovi pôvodný súbor");
         Reject(() => Updates.ReplaceAndStart(candidate, target, "start", _ => { }, _ => { }, () => throw new IOException("Start")), "Zlyhanie spustenia sa hlasi");
         Check(File.ReadAllText(target) == "pôvodné", "Zlyhanie spustenia obnovi pôvodný súbor");
+        Task releaseLock = Task.CompletedTask;
+        Reject(() => Updates.ReplaceAndStart(candidate, target, "short-lock", _ => { }, _ => { }, () =>
+        {
+            var held = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Read);
+            releaseLock = Task.Run(async () => { await Task.Delay(200); held.Dispose(); });
+            throw new IOException("Zlyhanie startu pri kratkodobom zamku");
+        }), "Zlyhanie startu so zdielacim zamkom sa hlasi");
+        await releaseLock;
+        Check(File.ReadAllText(target) == "pôvodné", "Obnova zalohy pocka na kratkodobe uvolnenie suboru");
         FileStream? locked = null; var id = Guid.NewGuid().ToString("N");
         var backup = Updates.ReplaceAndStart(candidate, target, id, _ => { }, _ => { }, () => locked = new FileStream(target + ".previous-" + id, FileMode.Open, FileAccess.Read, FileShare.Read));
         Check(File.ReadAllText(target) == "nove" && File.Exists(backup), "Zamknutá záloha nevrati uspesnu aktualizáciu"); locked!.Dispose();

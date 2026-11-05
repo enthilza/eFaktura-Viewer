@@ -1,7 +1,10 @@
-# eFaktura Viewer 1.1.1
+# eFaktura Viewer 1.1.2
 
-Výber cieľových priečinkov pokračuje priamo v hornom riadku za prepínačom **Vložené PDF**. Samostatný panel a opakovaný názov pod ním boli odstránené. Vybraný cieľ zostáva zvýraznený; pri úzkom okne sa tlačidlá zalomia.
+Aktualizácie lepšie zvládajú dočasné výpadky spojenia a servera.
 
-Pri nájdení novej verzie po štarte sa automaticky otvorí ponuka aktualizácie. Sťahovanie sa začne až po potvrdení. Ponuka počká na ukončenie otvoreného dialógu alebo presunu faktúr a po odmietnutí sa pri listovaní neopakuje. Ručné tlačidlo aktualizácie zostáva dostupné.
+- Pri chybe HTTP 504 a podobných dočasných chybách sa sťahovanie automaticky opakuje, celkovo najviac tri pokusy s krátkymi prestávkami.
+- Prerušený súbor sa stiahne od začiatku. Overenie veľkosti, digitálneho podpisu a verzie zostáva povinné.
+- Ak problém pretrvá, zobrazí sa zrozumiteľné slovenské hlásenie. Po odstránení ponúknutého vydania sa pri ďalšom pokuse znova vyhľadá aktuálna verzia.
+- Obnova predchádzajúcej verzie počká na krátkodobé uvoľnenie zamknutého súboru.
 
 Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.

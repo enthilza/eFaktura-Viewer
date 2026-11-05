@@ -482,10 +482,15 @@ internal sealed partial class ViewerWindow : Window
             if (closed) return; UpdateIndicator();
             if (update == null) { AppDialog.Info(this, "Všetko je aktuálne", "Máte aktuálnu verziu eFaktúra Viewer."); return; }
             if (!AppDialog.Confirm(this, "Nová verzia " + update.Version, "Stiahnuť a nainštalovať aktualizáciu? Po overení digitálneho podpisu sa aplikácia znova spustí s otvorenou faktúrou.", "Aktualizovať")) return;
-            if (!AppDialog.Work(this, "Aktualizácia aplikácie", "Pripravujem sťahovanie…", (progress, token) => Updates.Install(update, currentPath, progress, token))) return;
+            if (!AppDialog.Work(this, "Aktualizácia aplikácie", "Pripravujem sťahovanie…", (progress, token) => Updates.Install(update, currentPath, progress, token), UpdateTransport.ProgressText)) return;
             Close();
         }
-        catch (Exception e) { if (!closed) AppDialog.Info(this, "Aktualizácia nie je dostupná", e.Message); }
+        catch (Exception e)
+        {
+            // Po odstraneni starsieho release nesmieme donekonecna ponukat jeho ulozeny tag.
+            if (e is System.Net.Http.HttpRequestException { StatusCode: System.Net.HttpStatusCode.NotFound }) { update = null; UpdateIndicator(); }
+            if (!closed) AppDialog.Info(this, "Aktualizáciu sa nepodarilo dokončiť", UpdateTransport.Message(e));
+        }
         finally { updating = false; }
     }
     void UpdateIndicator()

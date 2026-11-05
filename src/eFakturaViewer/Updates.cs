@@ -31,17 +31,13 @@ internal static class Updates
         if (!System.Version.TryParse(offer.Version, out _) || offer.Tag != "v" + offer.Version || offer.File != "eFakturaViewer.exe" || offer.Runtime != "win-x64" || offer.Size < 10000 || offer.Size > 350L * 1024 * 1024) throw new InvalidDataException("Neplatné údaje aktualizácie.");
         return offer;
     }
-    static async Task<byte[]> Small(HttpClient client, string url, CancellationToken token = default)
-    {
-        // Limitujeme aj realne precitane bajty. Server nemusi poslat Content-Length alebo moze
-        // poslat nespravnu hodnotu; maly manifest nesmie naplnit pamat ako velke stahovanie.
-        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token); response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(token); using var m = new MemoryStream(); byte[] buffer = new byte[4096]; int n;
-        while ((n = await stream.ReadAsync(buffer, token)) != 0) { if (m.Length + n > 16384) throw new InvalidDataException("Príliš veľký popis aktualizácie."); m.Write(buffer, 0, n); } return m.ToArray();
-    }
+    static Task<byte[]> Small(HttpClient client, string url, CancellationToken token = default, IProgress<int>? progress = null) => UpdateTransport.Small(client, url, token, progress);
     internal static async Task<UpdateOffer?> Check(CancellationToken token = default)
     {
+        var callerToken = token;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(TimeSpan.FromSeconds(30)); token = deadline.Token;
+        try
+        {
         using var client = Client(); byte[] discovery;
         try { discovery = await Small(client, $"https://github.com/{Repository}/releases/latest/download/update.json", token); }
         catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.NotFound) { return null; }
@@ -53,6 +49,8 @@ internal static class Updates
         var offer = Manifest(bytes, sig);
         if (offer.Tag != hint.Tag) throw new InvalidDataException("Verzia popisu nesúhlasí.");
         return System.Version.Parse(offer.Version) > Assembly.GetExecutingAssembly().GetName().Version ? offer : null;
+        }
+        catch (OperationCanceledException e) when (!callerToken.IsCancellationRequested) { throw new TimeoutException("Kontrola aktualizácií sa nedokončila včas.", e); }
     }
     internal static void VerifyFile(string path, UpdateOffer offer, string? key = null)
     {
@@ -79,18 +77,13 @@ internal static class Updates
         try
         {
         using var client = Client();
-        var bytes = await Small(client, Asset(offer.Tag, "update.json"), token); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(offer.Tag, "update.sig"), token));
+        var bytes = await Small(client, Asset(offer.Tag, "update.json"), token, progress); var sig = System.Text.Encoding.UTF8.GetString(await Small(client, Asset(offer.Tag, "update.sig"), token, progress));
         // Medzi ponukou a potvrdenim mohol vydavatel vymenit subory vydania. Instalujeme
         // presne ponuknuty balik; zmenu nechame znovu prejst kontrolou aktualizacie.
         var verified = Manifest(bytes, sig); if (verified != offer) throw new InvalidDataException("Vydanie sa zmenilo. Skúste kontrolu znova.");
         File.WriteAllBytes(Path.Combine(job, "update.json"), bytes); File.WriteAllText(Path.Combine(job, "update.sig"), sig);
         var candidate = Path.Combine(job, offer.File);
-        using (var response = await client.GetAsync(Asset(offer.Tag, offer.File), HttpCompletionOption.ResponseHeadersRead, token))
-        {
-            response.EnsureSuccessStatusCode(); await using var input = await response.Content.ReadAsStreamAsync(token); await using var output = File.Create(candidate);
-            var buffer = new byte[65536]; int n; long total = 0;
-            while ((n = await input.ReadAsync(buffer, token)) > 0) { total += n; if (total > offer.Size) throw new InvalidDataException("Súbor presahuje podpísanú veľkosť."); await output.WriteAsync(buffer.AsMemory(0, n), token); progress.Report((int)(total * 100 / offer.Size)); }
-        }
+        await UpdateTransport.Download(client, Asset(offer.Tag, offer.File), candidate, offer.Size, progress, token);
         VerifyFile(candidate, offer);
         File.WriteAllText(Path.Combine(job, "reopen.json"), JsonSerializer.Serialize(reopen));
         var target = Environment.ProcessPath!; // Kontrola prava zapisu pred ukoncenim okna.
@@ -178,12 +171,22 @@ internal static class Updates
         }
         catch
         {
-            if (swapped) File.Replace(backup, target, null, true);
+            if (swapped) RestoreBackup(backup, target);
             throw;
         }
         finally { TryDelete(next); }
         // Spustenie uspelo. Zamknuta zaloha je uz iba upratovanie, nikdy dovod vratit staru verziu.
         TryDelete(backup); return backup;
+    }
+    static void RestoreBackup(string backup, string target)
+    {
+        // Scanner alebo synchronizator moze prave vymeneny subor kratko drzat.
+        // Pri zdielacom zamku pockame najviac sekundu; ine chyby nesmieme zamaskovat.
+        for (int attempt = 0; ; attempt++)
+        {
+            try { File.Replace(backup, target, null, true); return; }
+            catch (IOException e) when ((e.HResult & 0xffff) is 32 or 33 && attempt < 10) { Thread.Sleep(100); }
+        }
     }
     internal sealed record FinishedJob(string? Target, string? Backup);
     internal static void CompleteJob(string job, string? target, string? backup)

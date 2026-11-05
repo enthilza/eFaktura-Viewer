@@ -61,7 +61,7 @@ internal sealed class AppDialog : Window
             {
                 // Progress vznikne na UI vlakne a vracia sem aktualizacie z Task.Run.
                 // Priznak finished ignoruje oneskorene hlasenia po ukonceni operacie.
-                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = false; bar.Value = p; window.message.Text = progressText?.Invoke(p) ?? (p >= 100 ? "Overujem digitálny podpis…" : $"Sťahujem aktualizáciu · {p} %"); } });
+                var progress = new Progress<int>(p => { if (!finished) { bar.IsIndeterminate = p < 0; bar.Value = Math.Clamp(p, 0, 100); window.message.Text = progressText?.Invoke(p) ?? (p >= 100 ? "Overujem digitálny podpis…" : $"Sťahujem aktualizáciu · {p} %"); } });
                 await Task.Run(() => operation(progress, cancellation.Token));
             }
             catch (OperationCanceledException) { cancelled = true; }

@@ -160,6 +160,7 @@ internal static class SelfTest
         var first = window.OpenPath(Path.Combine(examples, "02_fmcg.xml")); var second = window.OpenPath(Path.Combine(examples, "04_dobropis.xml")); await Task.WhenAll(first, second);
         Check(window.Title.StartsWith("04_dobropis.xml") && window.OpenedNumber == Invoice.Load(Path.Combine(examples, "04_dobropis.xml"), CancellationToken.None).Number && window.HasPdf, "Rychle listovanie zachova poslednu poziadavku a jej PDF");
         await ReviewTests.Run(output, examples, checks);
+        await UpdateTransportTests.Run(output, checks);
         await PdfLayoutTests.Run(output, examples, checks);
         Check(originals.All(x => x.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(x.Key)))), "Vstupne súbory zostali nezmenene");
         if (!canRender) foreach (var p in Directory.GetFiles(output, "viewer-*.png")) File.Delete(p);

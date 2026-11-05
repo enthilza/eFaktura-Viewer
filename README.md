@@ -81,11 +81,15 @@ Pri štarte prebehne automatická kontrola novej verzie; možno ju vypnúť v po
 
 Kontrola na pozadí má limit 15 sekúnd. Ručná kontrola ju zruší a zobrazí vlastný priebeh. Bodka pri hornom tlačidle aktualizácie a jeho popis oznamujú dostupnú verziu aj po prepnutí faktúry.
 
+Pri dočasnom výpadku spojenia alebo chybe HTTP 408, 500, 502, 503 či 504 sa pre každý sťahovaný súbor vykonajú najviac tri pokusy, s prestávkami 1 a 2 sekundy. Prerušený súbor sa sťahuje od začiatku; po dokončení sa vždy overí jeho veľkosť, podpis a verzia. Opakovanie možno zrušiť. Ak problém pretrvá, zobrazí sa slovenské vysvetlenie. Ponuka novej verzie ešte nezaručuje, že server vzápätí zvládne aj sťahovanie celého EXE. Po odstránení ponúknutého vydania ďalší pokus znova vyhľadá aktuálnu verziu.
+
 Vydania obsahujú EXE, podpísaný `update.json` a `update.sig`. Overuje sa podpis RSA/SHA-256 manifestu aj EXE; **samostatný kontrolný súčet ani odtlačok EXE sa nezverejňuje**. Verejný overovací kľúč je zabudovaný v aplikácii a je súčasťou zdrojového kódu. Podpis aktualizácie nie je podpisom Authenticode súboru Windows EXE.
 
 Samotný GitHub však od 03.06.2025 automaticky vytvára a zobrazuje nemenný odtlačok SHA-256 každého súboru vydania. Túto vlastnosť platformy naša aplikácia neriadi. Nie je to súkromný kľúč ani podpisovacie tajomstvo. [Oznam GitHubu](https://github.blog/changelog/2025-06-03-releases-now-expose-digests-for-release-assets/)
 
 Aktualizátor počká na ukončenie okna, vymení EXE, overí štart a otvorí pôvodný XML. Pri zlyhaní kontroly štartu obnoví zálohu. Umiestnenie EXE musí povoľovať zápis. Súbory aktualizácie a prípadný záznam chyby sú v `%LOCALAPPDATA%\eFakturaViewer`.
+
+Obnova zálohy pri krátkodobom zámku súboru počká najviac jednu sekundu. Chyby podpisu, veľkosti balíka alebo zápisu na disk sa neopakujú ako dočasné sieťové chyby.
 
 Pre vydavateľa:
 
@@ -114,6 +118,8 @@ Regresné kontroly sú v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný B
 V odpojenej relácii Windows nemusí WPF vykresliť ani nezávislú grafickú sondu. Vizuálne kontroly okna sú vtedy označené ako **preskočené**, nie úspešné. PDF je možné vykresliť a overiť nezávisle. Ručné overenie fyzickej tlačiarne, monitorov s rôznym DPI a výpadkov konkrétneho sieťového disku zostáva na cieľovom PC.
 
 `WorkflowTests.cs` používa výlučne pracovné kópie syntetických faktúr a izolovanú vetvu registra. Overuje priradenia, kolízie názvov, zachovanie iných súborov, zmenený a zamknutý zdroj, prerušenie dávky, kopírovanie s overením obsahu, číselné klávesy, pomenované tlačidlá a vyprázdnenie náhľadu po presune.
+
+`UpdateTransportTests.cs` bez prístupu na internet simuluje dočasné chyby HTTP, prerušenie tela odpovede, neúplný súbor, zrušenie počas čakania a trvalé chyby. Overuje obmedzený počet pokusov, obnovenie sťahovania od začiatku a zachovanie kontrol veľkosti.
 
 ## Zdrojový kód
 
