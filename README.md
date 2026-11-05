@@ -25,6 +25,12 @@ eFakturaViewer.exe "C:\Faktury\faktura.xml"
 - Pri inom XML sa zobrazí **„Toto nie je eFaktúra.“** a rozbaľovací strom prvkov a atribútov. Šípky v aktívnom strome ovládajú strom; na ďalší súbor použite spodné tlačidlá alebo kontextovú ponuku.
 - Pri poškodenom XML, DTD, neplatnej prílohe alebo nedostupnom súbore sa zobrazí chyba; ostatné súbory možno ďalej prezerať.
 
+## Vzhľad generovanej faktúry
+
+Generovaný náhľad používa prehľadné sivé bloky: výraznú sumu na úhradu a dátumy, dodávateľa a odberateľa vedľa seba, platobné údaje, jednoduchú tabuľku položiek a rozpis DPH. Pri dobropise je suma označená ako suma dobropisu. Prázdne údaje sa nevypisujú; chýbajúca suma na úhradu je označená ako neuvedená.
+
+Technické identifikátory Peppol, atribúty XML, opakované daňové kódy partnerov a zoznamy príloh náhľad nezapĺňajú. Úplný obsah zostáva v strome XML. Náhľad zachováva obchodné mená, adresy, IČO a daňové identifikátory, referenciu platby, poznámky a platobné podmienky. Sumy, preddavky, zľavy a zaokrúhlenie preberá z XML bez prepočítavania. Cena za viac kusov zostáva jasne označená, daň v inej mene má vlastné označenie a dlhé texty či veľa položiek pokračujú na ďalších stranách. Vložené PDF sa nemení.
+
 ## Zapamätané nastavenia
 
 Poloha a veľkosť okna, maximalizácia, prispôsobenie výške/šírke, ručné priblíženie, farebná schéma, poradie súborov, posledný priečinok a kontrola aktualizácií sa ukladajú pre aktuálneho používateľa do `HKEY_CURRENT_USER\Software\eFakturaViewer`, do hodnoty `Settings`. Platia aj po premiestnení alebo aktualizácii EXE na tom istom počítači. Každý používateľ Windows má vlastné nastavenia.

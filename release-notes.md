@@ -1,10 +1,11 @@
-# eFaktura Viewer 1.0.6
+# eFaktura Viewer 1.0.7
 
-Aplikácia si pamätá vaše nastavenia pri listovaní faktúrami aj po opätovnom spustení.
+Generovaný náhľad faktúry je prehľadnejší a obsahuje menej technických údajov.
 
-- Obnoví poslednú polohu a veľkosť okna, monitor aj maximalizáciu. Ak monitor nie je pripojený, okno sa zobrazí na dostupnej obrazovke.
-- Prispôsobenie výške, prispôsobenie šírke aj ručné priblíženie zostávajú zachované pri prechode na ďalšiu faktúru, zmene zdroja PDF aj po reštarte.
-- Nastavenia sa ukladajú do registra aktuálneho používateľa. Doterajšia farebná schéma, poradie súborov, posledný priečinok a voľba kontroly aktualizácií sa zachovajú.
-- Minimalizácia pred zatvorením nezmaže poslednú viditeľnú polohu. Súbežne otvorené okná si neprepisujú nezmenené voľby.
+- Suma na úhradu a dátumy sú zvýraznené v hornej časti. Dodávateľ a odberateľ majú samostatné jemne zaoblené sivé bloky.
+- Platobné údaje, položky a rozpis DPH sú usporiadané do stručných sekcií. Písmo a odtiene sivej ladia s aplikáciou.
+- Technické identifikátory, atribúty XML a opakované vnorené výpisy zostávajú v strome XML a nezapĺňajú PDF.
+- Zachovávajú sa sumy z XML, cena za balenie, preddavky, zľavy, zaokrúhlenie, obchodné mená, platobné podmienky a dôvody oslobodenia od DPH. Dlhé texty a viac položiek pokračujú na ďalších stranách.
+- Každá nová faktúra sa naďalej otvorí náhľadom z XML. Vložené PDF je dostupné na ručný výber a zostáva nezmenené.
 
-Pri prvom spustení zostáva svetlá schéma, prispôsobenie výške a pôvodná veľkosť okna podľa A4. Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.
+Overené automatickými kontrolami, kontrolou textového obsahu PDF a vizuálnou kontrolou bežných aj viacstranových dokladov. Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.
