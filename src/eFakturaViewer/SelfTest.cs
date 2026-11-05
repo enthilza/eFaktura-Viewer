@@ -106,10 +106,31 @@ internal static class SelfTest
         window.UpdateLayout();
         Check(window.CurrentFit == ViewerWindow.FitMode.Height && window.PageFitsHeight, "Predvolene sa cela strana zmesti na vysku");
         var heightWidth = window.PageWidth; window.TestFit(ViewerWindow.FitMode.Width); Check(window.PageWidth > heightWidth, "Prispôsobenie šírke skutocne zvacsi stranu"); window.TestFit(ViewerWindow.FitMode.Height);
+        var slider = window.ZoomSliderForTest; slider.ApplyTemplate();
+        Check(Math.Abs(slider.Value - window.PageWidth / 794 * 100) < .01 && window.CurrentFit == ViewerWindow.FitMode.Height, "Percenta lupy odrazaju prisposobenie bez zmeny rezimu");
+        var track = (System.Windows.Controls.Primitives.Track)slider.Template.FindName("PART_Track", slider);
+        Check(!window.CanDragHeader(track.Thumb, new Point(320, 110)) && !slider.Focusable, "Uchop lupy nepresuva okno ani neprebera sipky");
+        slider.Value = 175;
+        Check(window.CurrentFit == ViewerWindow.FitMode.Manual && Math.Abs(window.PageWidth - 794 * 1.75) < .1 && window.ZoomPercentForTest == "175 %", "Posuvnik meni skutocnu velkost strany aj percenta");
+        var priorZoom = slider.Value;
+        track.Thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(8, 0) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragDeltaEvent });
+        Check(slider.Value > priorZoom && window.PageWidth > 794 * 1.75, "Tah uchopu skutocne meni priblizenie PDF");
+        window.ZoomResetForTest.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+        Check(window.ZoomPercentForTest == "100 %" && Math.Abs(window.PageWidth - 794) < .1, "Kliknutie na percenta obnovi 100 percent");
+        window.TestFit(ViewerWindow.FitMode.Height);
+        var regularWidth = window.Width; window.Width = window.MinWidth; window.UpdateLayout();
+        var zoomCorner = window.ZoomControlForTest.TranslatePoint(new Point(window.ZoomControlForTest.ActualWidth, 0), window);
+        Check(zoomCorner.X <= window.ActualWidth - 12, "Lupa sa zmesti aj do minimalnej sirky okna");
+        window.Width = regularWidth; window.UpdateLayout();
         Check(window.NavigationVisible && window.ProfileBadge.Contains("ROZŠÍRENÝ FMCG") && window.HasPdf, "Rozšírený profil, PDF a navigacia v GUI");
         if (canRender)
         {
+            // Seriove simulovane tahy nemaju prestavku ako skutocna mys. Pred snimkou
+            // nechame prebehnut aj rozlozenie po zmene sirky a kompoziciu novej mierky.
+            await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            await Task.Delay(250);
             await window.Capture(Path.Combine(output, "viewer-dark.png"), false);
+            Check(PageInkVisible(Path.Combine(output, "viewer-dark.png")), "Po zmene lupy je PDF viditelne aj v tmavej scheme");
             var dialog = AppDialog.Preview(window); dialog.Show(); dialog.UpdateLayout(); SaveWindow(dialog, Path.Combine(output, "dialog-dark.png")); dialog.Close();
             await window.Capture(Path.Combine(output, "viewer-light.png"), true);
             Check(PageInkVisible(Path.Combine(output, "viewer-light.png")), "Po prepnuti temy je faktúra viditelna aj vo vykreslenom okne");
@@ -128,9 +149,12 @@ internal static class SelfTest
         var single = Path.Combine(output, "single"); Directory.CreateDirectory(single); File.Copy(Path.Combine(examples, "01_zaklad.xml"), Path.Combine(single, "faktura.xml"), true);
         // Z minuleho behu moze ostat ukazka beznej XML konfiguracie.
         var prior = Path.Combine(single, "settings.xml"); if (File.Exists(prior)) File.Delete(prior);
-        await window.OpenPath(Path.Combine(single, "faktura.xml")); Check(!window.NavigationVisible, "Jeden XML skryje spodny panel"); Check(window.HeaderToolsVisible && window.PageFitsHeight, "Pri jednom XML zostavaju horne nástroje a strana na vysku"); if (canRender) await window.Capture(Path.Combine(output, "viewer-single.png"), false);
+        await window.OpenPath(Path.Combine(single, "faktura.xml")); Check(!window.NavigationVisible, "Jeden XML skryje spodny panel"); Check(window.HeaderToolsVisible && window.PageFitsHeight, "Pri jednom XML zostavaju horne nástroje a strana na vysku");
+        Check(window.ZoomControlForTest.IsVisible && window.ZoomControlForTest.IsEnabled, "Lupa zostava dostupna aj pri jedinom XML");
+        if (canRender) await window.Capture(Path.Combine(output, "viewer-single.png"), false);
         var unknown = Path.Combine(single, "settings.xml"); File.WriteAllText(unknown, "<settings><server port='443'>Ukazka</server><enabled>true</enabled></settings>");
         await window.OpenPath(unknown); Check(window.EmptyTitle == "Toto nie je eFaktúra." && window.NavigationVisible, "Bezne XML zobrazí oznam a zachova navigaciu"); if (canRender) await window.Capture(Path.Combine(output, "viewer-xml.png"), false);
+        Check(!window.ZoomControlForTest.IsEnabled && window.ZoomPercentForTest == "—", "XML strom nema aktivne ovladanie zoomu PDF");
         // Zamerne necakame medzi poziadavkami. Postupne await by neodhalilo oneskoreny
         // vysledok prveho nacitania, ktory by prepisal druhy dokument.
         var first = window.OpenPath(Path.Combine(examples, "02_fmcg.xml")); var second = window.OpenPath(Path.Combine(examples, "04_dobropis.xml")); await Task.WhenAll(first, second);

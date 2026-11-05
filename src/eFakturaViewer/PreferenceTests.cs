@@ -59,7 +59,7 @@ internal static class PreferenceTests
             var reopened = Open(); await Settle(reopened);
             var actual = WindowPlacement.Capture(reopened)!;
             Check(Near(expected, actual) && reopened.CurrentFit == ViewerWindow.FitMode.Width, "Nove okno obnovi polohu velkost aj prisposobenie sirke");
-            await reopened.OpenPath(Path.Combine(examples, "01_zaklad.xml")); reopened.TestZoom(1.2); var pageWidth = reopened.PageWidth;
+            await reopened.OpenPath(Path.Combine(examples, "01_zaklad.xml")); reopened.ZoomSliderForTest.Value = 175; var pageWidth = reopened.PageWidth;
             await reopened.OpenPath(Path.Combine(examples, "02_fmcg.xml"));
             Check(reopened.CurrentFit == ViewerWindow.FitMode.Manual && Math.Abs(pageWidth - reopened.PageWidth) < .1, "Rucny zoom sa zachova medzi fakturami");
             reopened.WindowState = WindowState.Maximized; await Settle(reopened);
@@ -70,9 +70,12 @@ internal static class PreferenceTests
             Check(maximized.WindowState == WindowState.Maximized, "Dalsi start obnovi maximalizovane okno");
             await maximized.OpenPath(Path.Combine(examples, "01_zaklad.xml"));
             Check(maximized.CurrentFit == ViewerWindow.FitMode.Manual && Math.Abs(pageWidth - maximized.PageWidth) < .1, "Rucny zoom sa obnovi aj v novom okne");
+            Check(maximized.ZoomPercentForTest == "175 %" && maximized.ZoomSliderForTest.Value == 175, "Ulozena hodnota posuvnika sa obnovi aj v zahlavi");
             maximized.WindowState = WindowState.Normal; await Settle(maximized);
             Check(Near(normal, WindowPlacement.Capture(maximized)!), "Obnovenie z maximalizacie zachova normalne rozmery a polohu");
+            maximized.ZoomSliderForTest.Value = 183;
             maximized.Close();
+            Check(Math.Abs(Preferences.Load().Zoom - 1.83) < .001, "Okamzite zatvorenie dokonci cakajuce ulozenie lupy");
         }
         finally
         {

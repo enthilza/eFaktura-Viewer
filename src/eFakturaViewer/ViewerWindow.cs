@@ -13,7 +13,7 @@ using Microsoft.Win32;
 
 namespace eFakturaViewer;
 
-internal sealed class ViewerWindow : Window
+internal sealed partial class ViewerWindow : Window
 {
     readonly Preferences preferences = Preferences.Load();
     readonly Border shell = new(), dock = new();
@@ -82,7 +82,7 @@ internal sealed class ViewerWindow : Window
         SizeChanged += (_, _) => SchedulePlacementSave();
         StateChanged += (_, _) => SavePlacement();
         placementTimer.Tick += (_, _) => { placementTimer.Stop(); SavePlacement(); };
-        Closing += (_, _) => { placementTimer.Stop(); SavePlacement(); };
+        Closing += (_, _) => { placementTimer.Stop(); FlushZoomSave(); SavePlacement(); };
         FontFamily = new FontFamily("Segoe UI Variable, Segoe UI"); FontSize = 13;
         using (var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico")).Stream)
         { var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(stream, System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad); Icon = decoder.Frames[^1]; }
@@ -104,7 +104,8 @@ internal sealed class ViewerWindow : Window
         var viewing = new WrapPanel { Margin = new Thickness(5, 6, 5, 10) }; Grid.SetRow(viewing, 2); Grid.SetColumnSpan(viewing, 2); header.Children.Add(viewing);
         fitHeightButton = VisualStyle.Button("height", "Prispôsobiť výške", "Prispôsobiť výške", () => Fit(FitMode.Height));
         fitWidthButton = VisualStyle.Button("width", "Prispôsobiť šírke", "Prispôsobiť šírke", () => Fit(FitMode.Width));
-        viewing.Children.Add(fitHeightButton); viewing.Children.Add(fitWidthButton); viewing.Children.Add(embeddedSwitch);
+        viewing.Children.Add(fitHeightButton); viewing.Children.Add(fitWidthButton);
+        viewing.Children.Add(CreateZoomControl()); viewing.Children.Add(embeddedSwitch);
         Grid.SetRow(sources, 3); Grid.SetColumnSpan(sources, 2); header.Children.Add(sources);
         PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -169,6 +170,7 @@ internal sealed class ViewerWindow : Window
         counter.Foreground = B(light ? "#626262" : "#BEBEBE"); pageCounter.Foreground = counter.Foreground; badge.Foreground = counter.Foreground;
         tree.Background = Brushes.Transparent; tree.Foreground = Foreground;
         UpdateFitButtons();
+        UpdateZoomControl();
     }
     void SaveSettings() { try { preferences.Save(); } catch (Exception e) { status.Text = "Nastavenia sa neuložili: " + e.Message; } }
     void SchedulePlacementSave() { if (!placementReady || closed) return; placementTimer.Stop(); placementTimer.Start(); }
@@ -267,6 +269,7 @@ internal sealed class ViewerWindow : Window
     void ClearPdf()
     {
         var old = pdf; pdf = null; pdfBytes = null; images.Clear(); paper.Clear(); pages.Children.Clear();
+        UpdateZoomControl();
         if (old != null) _ = DisposeLater(old);
     }
     async Task DisposeLater(PdfView old) { await rendering.WaitAsync(); try { old.Dispose(); } finally { rendering.Release(); } }
@@ -283,6 +286,7 @@ internal sealed class ViewerWindow : Window
             p.Width = Math.Clamp(width, 60, 5000); p.Height = p.Width * ratio;
         }
         UpdateFitButtons();
+        UpdateZoomControl();
         _ = RenderVisible();
     }
     bool ScrollDocument(Key key)
@@ -299,7 +303,7 @@ internal sealed class ViewerWindow : Window
             default: return false;
         }
     }
-    void Fit(FitMode mode) { fitMode = mode; preferences.Fit = mode; SaveSettings(); LayoutPages(); }
+    void Fit(FitMode mode) { zoomSaveTimer.Stop(); fitMode = mode; preferences.Fit = mode; SaveSettings(); LayoutPages(); }
     void UpdateFitButtons()
     {
         if (fitHeightButton == null) return;
@@ -308,7 +312,7 @@ internal sealed class ViewerWindow : Window
     }
     // Rucny zoom nadvazuje na prave zobrazenu sirku, inak by prve kliknutie po fit-height sposobilo skok.
     // Zaklad 794 zodpoveda pribliznej sirke A4 pri 96 DPI a pouziva ho aj LayoutPages.
-    void Zoom(double factor) { if (fitMode != FitMode.Manual && paper.Count > 0) scale = paper[0].Width / 794; fitMode = FitMode.Manual; scale = Math.Clamp(scale * factor, .1, 5); preferences.Fit = fitMode; preferences.Zoom = scale; SaveSettings(); LayoutPages(); }
+    void Zoom(double factor) => SetZoom((fitMode != FitMode.Manual && paper.Count > 0 ? paper[0].Width / 794 : scale) * factor);
     Task RenderVisible()
     {
         if (closed || pdf == null) return Task.CompletedTask;
@@ -351,6 +355,7 @@ internal sealed class ViewerWindow : Window
     void ShowTree(XElement? element, string title)
     {
         showingXml = true; scroll.Visibility = Visibility.Collapsed; stage.Children[1].Visibility = Visibility.Visible; emptyTitle.Text = title; tree.Items.Clear();
+        UpdateZoomControl();
         if (element != null) tree.Items.Add(Node(element)); pageCounter.Text = "";
     }
     static TreeViewItem Node(XElement e)
@@ -505,7 +510,7 @@ internal sealed class ViewerWindow : Window
         if (point.Y < 0 || point.Y > shell.Margin.Top + shell.BorderThickness.Top + shell.Padding.Top + header.ActualHeight) return false;
         while (source != null)
         {
-            if (source is ButtonBase or ComboBox or TextBoxBase or MenuItem) return false;
+            if (source is ButtonBase or RangeBase or Thumb or ComboBox or TextBoxBase or MenuItem) return false;
             source = source is Visual ? VisualTreeHelper.GetParent(source) : LogicalTreeHelper.GetParent(source);
         }
         return true;

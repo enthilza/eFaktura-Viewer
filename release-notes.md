@@ -1,11 +1,10 @@
-# eFaktura Viewer 1.0.7
+# eFaktura Viewer 1.0.8
 
-Generovaný náhľad faktúry je prehľadnejší a obsahuje menej technických údajov.
+Priblíženie faktúry môžete pohodlne meniť priamo v záhlaví.
 
-- Suma na úhradu a dátumy sú zvýraznené v hornej časti. Dodávateľ a odberateľ majú samostatné jemne zaoblené sivé bloky.
-- Platobné údaje, položky a rozpis DPH sú usporiadané do stručných sekcií. Písmo a odtiene sivej ladia s aplikáciou.
-- Technické identifikátory, atribúty XML a opakované vnorené výpisy zostávajú v strome XML a nezapĺňajú PDF.
-- Zachovávajú sa sumy z XML, cena za balenie, preddavky, zľavy, zaokrúhlenie, obchodné mená, platobné podmienky a dôvody oslobodenia od DPH. Dlhé texty a viac položiek pokračujú na ďalších stranách.
-- Každá nová faktúra sa naďalej otvorí náhľadom z XML. Vložené PDF je dostupné na ručný výber a zostáva nezmenené.
+- Za tlačidlami na prispôsobenie výške a šírke je nová lupa: mínus, posuvník, plus a aktuálne percentá. Vzhľad ladí so svetlou aj tmavou sivou schémou.
+- Priblíženie možno nastaviť od 10 do 500 %. Kliknutím na percentá sa vrátite na 100 %.
+- Lupa zostáva dostupná aj pri jedinej faktúre. Pri prispôsobení výške alebo šírke percentá sledujú aktuálnu mierku.
+- Ručne zvolená mierka sa zapamätá pri listovaní aj po reštarte. Ťahanie posuvníka nepresúva okno a šípky naďalej ovládajú faktúry.
 
-Overené automatickými kontrolami, kontrolou textového obsahu PDF a vizuálnou kontrolou bežných aj viacstranových dokladov. Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.
+Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.
