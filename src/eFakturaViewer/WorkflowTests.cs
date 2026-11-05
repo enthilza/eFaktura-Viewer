@@ -111,17 +111,21 @@ internal static class WorkflowTests
             WorkflowStore.SetFolders(folders);
             var window = new ViewerWindow(null); windows.Add(window); window.Show(); await window.OpenPath(ui1);
             Check(window.WorkflowTargetForTest == target1, "Okno zvyrazni predvoleny prvy ciel");
-            Check(window.WorkflowButtonsForTest.Children.OfType<Button>().Take(2).Select(b => ((TextBlock)((StackPanel)b.Content).Children[0]).Text).SequenceEqual(new[] { "1 · Účtovníctvo", "2 · Schvaľovanie" }), "Cielove tlacidla zobrazuju cislo aj priatelsky nazov");
+            Check(window.WorkflowButtonsForTest.Take(2).Select(b => ((TextBlock)((StackPanel)b.Content).Children[0]).Text).SequenceEqual(new[] { "1 · Účtovníctvo", "2 · Schvaľovanie" }), "Cielove tlacidla zobrazuju cislo aj priatelsky nazov");
             var keyEvent = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window)!, Environment.TickCount, Key.D2) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
             window.HeaderToolsForTest.RaiseEvent(keyEvent);
             Check(keyEvent.Handled && window.WorkflowTargetForTest == target2 && File.Exists(ui1), "Klaves 2 zaradi fakturu bez fyzickeho presunu");
             await window.OpenPath(ui2); Check(window.WorkflowTargetForTest == target1, "Dalsia nepriradena faktura ma predvolbu 1");
             await window.OpenPath(ui1); Check(window.WorkflowTargetForTest == target2, "Listovanie zachova priradenie konkretnej faktury");
-            var firstButton = window.WorkflowButtonsForTest.Children.OfType<Button>().First(); firstButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var firstButton = window.WorkflowButtonsForTest.First(); firstButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(window.WorkflowTargetForTest == target1, "Cislovane tlacidlo meni priradenie rovnako ako klaves");
             window.TestAssignWorkflow(1);
             window.Close(); window = new ViewerWindow(null); windows.Add(window); window.Show(); await window.OpenPath(ui1);
             Check(window.WorkflowTargetForTest == target2, "Nove okno obnovi ciel ulozeny pred zatvorenim");
+            var originalWidth = window.Width; window.Width = 1200; window.UpdateLayout();
+            var switchRight = window.EmbeddedSwitchForTest.TranslatePoint(new Point(window.EmbeddedSwitchForTest.ActualWidth, window.EmbeddedSwitchForTest.ActualHeight / 2), window);
+            var targetLeft = window.WorkflowButtonsForTest[0].TranslatePoint(new Point(0, window.WorkflowButtonsForTest[0].ActualHeight / 2), window);
+            Check(targetLeft.X > switchRight.X && Math.Abs(targetLeft.Y - switchRight.Y) < 1, "Cielove tlacidla pokracuju v tom istom riadku hned za prepinacom PDF");
             if (canRender)
             {
                 foreach (var light in new[] { true, false })
@@ -134,19 +138,20 @@ internal static class WorkflowTests
                     Check(WorkflowStore.Load().Folders[0].Name == folders[0].Name, "Zatvorenie dialogu bez ulozenia nezmeni ciele " + light);
                 }
             }
+            window.Width = originalWidth;
             await window.TestMoveInvoices();
             Check(!window.HasPdf && !window.NavigationVisible && window.EmptyTitle == "" && Directory.GetFiles(uiDir).Length == 0 && File.Exists(Path.Combine(target2, "prva.xml")) && File.Exists(Path.Combine(target1, "druha.xml")), "Tlacidlo vykona davku cez modalny priebeh a vyprazdni nahlad");
             var manyFolders = Enumerable.Range(1, 12).Select(i => new WorkflowFolder(Guid.NewGuid(), "Cieľ " + i, Path.Combine(root, "ciel-" + i))).ToArray();
             WorkflowStore.SetFolders(manyFolders); Put(uiDir, "prva.xml"); await window.OpenPath(ui1);
             keyEvent = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window)!, Environment.TickCount, Key.NumPad0) { RoutedEvent = Keyboard.PreviewKeyDownEvent }; window.HeaderToolsForTest.RaiseEvent(keyEvent);
-            Check(keyEvent.Handled && window.WorkflowTargetForTest == manyFolders[9].Path && window.WorkflowButtonsForTest.Children.OfType<Button>().Count() == 13, "Desiaty ciel ma klaves 0 a dalsie ciele zostavaju pristupne tlacidlami");
+            Check(keyEvent.Handled && window.WorkflowTargetForTest == manyFolders[9].Path && window.WorkflowButtonsForTest.Count == 13, "Desiaty ciel ma klaves 0 a dalsie ciele zostavaju pristupne tlacidlami");
             window.Width = window.MinWidth; window.UpdateLayout();
-            Check(window.WorkflowButtonsForTest.ActualWidth <= window.ActualWidth, "Ciele sa zalomia aj v uzkom okne");
+            Check(window.WorkflowButtonsForTest.All(b => b.TranslatePoint(new Point(b.ActualWidth, 0), window).X <= window.ActualWidth - 12), "Ciele sa zalomia aj v uzkom okne");
             WorkflowStore.SetFolders([]); await window.OpenPath(ui1);
-            Check(!window.WorkflowButtonsForTest.IsVisible && window.HasPdf, "Bez cielov funguje povodny prezerac bez panela triedenia");
+            Check(window.WorkflowButtonsForTest.Count == 0 && window.HasPdf, "Bez cielov funguje povodny prezerac bez panela triedenia");
             using (var key = Registry.CurrentUser.CreateSubKey(Preferences.RegistryPath)) key.SetValue("Workflows", "{pokazene}");
             Reject(() => WorkflowStore.Load(), "Poskodeny profil triedenia sa nezameni za prazdny predvoleny profil");
-            await window.OpenPath(ui1); Check(window.HasPdf && !window.WorkflowButtonsForTest.IsVisible, "Poskodeny profil triedenia neblokuje prezeranie");
+            await window.OpenPath(ui1); Check(window.HasPdf && window.WorkflowButtonsForTest.Count == 0, "Poskodeny profil triedenia neblokuje prezeranie");
         }
         finally
         {

@@ -140,9 +140,57 @@ internal static class ReviewTests
         await window.OpenPath("invalid\0path"); Check(!window.NavigationVisible && !window.HasPdf, "Chýba novej cesty nezachova staru navigaciu");
         window.Close();
         var offer = new UpdateOffer("99.0.0", "v99.0.0", "eFakturaViewer.exe", "win-x64", 10000, "");
-        var notification = new ViewerWindow(null, updateChecker: _ => Task.FromResult<UpdateOffer?>(offer)); notification.Show();
-        await notification.CheckUpdates(false); await notification.OpenPath(testFile);
-        Check(notification.UpdateAvailable, "Indikator aktualizácie zostane po otvoreni dokumentu"); notification.Close();
+        int offersShown = 0;
+        // Sledujeme skutocny potvrdzovaci dialog a zavrieme ho bez prijatia.
+        // Test tak overi startovaci tok, ale nikdy nestahuje ani neinstaluje aktualizaciu.
+        var offerCloser = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        offerCloser.Tick += (_, _) =>
+        {
+            foreach (var dialog in Application.Current.Windows.OfType<AppDialog>().ToArray())
+                if (dialog.Title == "Nová verzia 99.0.0") { offersShown++; dialog.Close(); }
+        };
+        async Task WaitForOffer()
+        {
+            var deadline = Stopwatch.StartNew();
+            while (offersShown == 0 && deadline.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(30);
+        }
+        offerCloser.Start();
+        try
+        {
+            var startupPreferences = Preferences.Load(); startupPreferences.CheckUpdates = true; startupPreferences.Save();
+            var notification = new ViewerWindow(null, updateChecker: _ => Task.FromResult<UpdateOffer?>(offer));
+            // Okno uz ma vlastnu kopiu preferencii; ostatne testovacie okna nemaju kontaktovat siet.
+            startupPreferences.CheckUpdates = false; startupPreferences.Save();
+            notification.Show();
+            try
+            {
+                await WaitForOffer();
+                Check(offersShown == 1 && notification.UpdateAvailable && !notification.AutomaticOfferPending, "Start automaticky ponukne najdenu aktualizaciu");
+                await notification.OpenPath(testFile); await Task.Delay(350);
+                Check(offersShown == 1 && notification.UpdateAvailable, "Odmietnuta ponuka sa neopakuje pri listovani a indikator zostane");
+            }
+            finally { notification.Close(); }
+
+            offersShown = 0;
+            var deferred = new ViewerWindow(null, updateChecker: _ => Task.FromResult<UpdateOffer?>(offer)); deferred.Show();
+            var busy = AppDialog.Preview(deferred); busy.Show();
+            try
+            {
+                await deferred.CheckUpdates(false); await Task.Delay(350);
+                Check(offersShown == 0 && deferred.AutomaticOfferPending, "Ponuka aktualizacie pocka kym sa zavrie otvoreny dialog");
+                busy.Close(); await WaitForOffer();
+                Check(offersShown == 1 && !deferred.AutomaticOfferPending, "Odlozena ponuka sa zobrazi po zavreti dialogu");
+            }
+            finally { if (busy.IsVisible) busy.Close(); deferred.Close(); }
+            offersShown = 0;
+            foreach (var checker in new Func<CancellationToken, Task<UpdateOffer?>>[] { _ => Task.FromResult<UpdateOffer?>(null), _ => Task.FromException<UpdateOffer?>(new IOException("Test bez siete")) })
+            {
+                var silent = new ViewerWindow(null, updateChecker: checker); silent.Show();
+                try { await silent.CheckUpdates(false); Check(!silent.AutomaticOfferPending && !silent.UpdateAvailable && offersShown == 0, "Bez novej verzie alebo siete sa pri starte neotvara oznam"); }
+                finally { silent.Close(); }
+            }
+        }
+        finally { offerCloser.Stop(); }
         int calls = 0; bool cancelled = false;
         var manual = new ViewerWindow(null, updateChecker: async token =>
         {

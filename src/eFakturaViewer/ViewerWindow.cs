@@ -19,6 +19,7 @@ internal sealed partial class ViewerWindow : Window
     readonly Border shell = new(), dock = new();
     readonly Grid header = new() { Background = Brushes.Transparent };
     readonly StackPanel headerTools = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+    readonly WrapPanel viewing = new() { Margin = new Thickness(5, 6, 5, 10) };
     readonly TextBlock logo = new() { Text = "eFaktúra", FontSize = 18, FontWeight = FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 12, 0) };
     readonly Grid root = new(), stage = new();
     readonly StackPanel pages = new() { HorizontalAlignment = HorizontalAlignment.Center };
@@ -54,6 +55,7 @@ internal sealed partial class ViewerWindow : Window
     bool updating, renderPending;
     Task? renderTask;
     CancellationTokenSource? automaticCheck;
+    readonly DispatcherTimer automaticOfferTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     ContextMenu? activeMenu;
     readonly DispatcherTimer placementTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     bool placementReady;
@@ -101,7 +103,9 @@ internal sealed partial class ViewerWindow : Window
         headerTools.Children.Add(Button("×", "Zavrieť (Esc)", () => Close()));
         Grid.SetRow(badge, 1); Grid.SetColumnSpan(badge, 2); header.Children.Add(badge); root.Children.Add(header);
         header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var viewing = new WrapPanel { Margin = new Thickness(5, 6, 5, 10) }; Grid.SetRow(viewing, 2); Grid.SetColumnSpan(viewing, 2); header.Children.Add(viewing);
+        // Pri mnohych cieloch sa posuva iba horna lista, aby nevytlacila dokument z okna.
+        var viewingScroll = new ScrollViewer { Content = viewing, MaxHeight = 160, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        Grid.SetRow(viewingScroll, 2); Grid.SetColumnSpan(viewingScroll, 2); header.Children.Add(viewingScroll);
         fitHeightButton = VisualStyle.Button("height", "Prispôsobiť výške", "Prispôsobiť výške", () => Fit(FitMode.Height));
         fitWidthButton = VisualStyle.Button("width", "Prispôsobiť šírke", "Prispôsobiť šírke", () => Fit(FitMode.Width));
         viewing.Children.Add(fitHeightButton); viewing.Children.Add(fitWidthButton);
@@ -149,7 +153,15 @@ internal sealed partial class ViewerWindow : Window
         };
         MouseRightButtonUp += (_, e) => { if (e.OriginalSource is not TextBox) { var menu = Menu(); menu.IsOpen = true; e.Handled = true; } };
         AllowDrop = true; Drop += async (_, e) => { if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0) await OpenPath(paths[0]); };
-        Closed += (_, _) => { closed = true; request.Cancel(); automaticCheck?.Cancel(); ClearPdf(); };
+        Closed += (_, _) => { closed = true; request.Cancel(); automaticCheck?.Cancel(); automaticOfferTimer.Stop(); ClearPdf(); };
+        automaticOfferTimer.Tick += (_, _) =>
+        {
+            if (closed || update == null) { automaticOfferTimer.Stop(); return; }
+            // Aktualizaciu nevrstvime nad vyber priecinka ani prebiehajuci presun.
+            // Nativny dialog tiez vypne vlastnika, hoci nie je vo WPF OwnedWindows.
+            if (updating || movingInvoices || !IsVisible || WindowState == WindowState.Minimized || activeMenu?.IsOpen == true || OwnedWindows.Cast<Window>().Any(w => w.IsVisible) || !IsWindowEnabled(new System.Windows.Interop.WindowInteropHelper(this).Handle)) return;
+            automaticOfferTimer.Stop(); _ = CheckUpdates(true);
+        };
         Loaded += async (_, _) => { if (initialPath != null) await OpenPath(initialPath); else Welcome(); if (preferences.CheckUpdates) _ = CheckUpdates(false); };
         Theme();
     }
@@ -397,7 +409,7 @@ internal sealed partial class ViewerWindow : Window
         Item(preferences.Light ? "Tmavý režim" : "Svetlý režim", ToggleTheme);
         m.Items.Add(new Separator());
         Item(update == null ? "Aktualizovať" : "Nainštalovať " + update.Version, () => _ = CheckUpdates(true));
-        Item((preferences.CheckUpdates ? "✓ " : "") + "Kontrolovať aktualizácie pri štarte", () => { preferences.CheckUpdates = !preferences.CheckUpdates; SaveSettings(); });
+        Item((preferences.CheckUpdates ? "✓ " : "") + "Kontrolovať aktualizácie pri štarte", () => { preferences.CheckUpdates = !preferences.CheckUpdates; if (!preferences.CheckUpdates) { automaticCheck?.Cancel(); automaticOfferTimer.Stop(); } SaveSettings(); });
         Item("Otvárať XML v tejto aplikácii…", Associations);
         Item("O aplikácii", () => AppDialog.Info(this, "eFaktúra Viewer", "Verzia " + typeof(App).Assembly.GetName().Version!.ToString(3) + "\nLokálny prezerač a triedenie BIS3 a FMCG.\nObsah XML sa nemení. Presun sa vykoná iba na váš pokyn. Náhľad nepotvrdzuje súlad s BIS.\n\nPDFsharp / MigraDoc 6.2.0 (MIT)\nPDF zobrazuje Windows.\nZdrojový kód: github.com/enthilza/eFaktura-Viewer"));
         return m;
@@ -443,6 +455,7 @@ internal sealed partial class ViewerWindow : Window
     }
     internal async Task CheckUpdates(bool manual)
     {
+        if (closed) return;
         if (!manual)
         {
             automaticCheck?.Cancel();
@@ -450,14 +463,18 @@ internal sealed partial class ViewerWindow : Window
             try
             {
                 var offer = await updateChecker(cancellation.Token);
-                if (!closed && !cancellation.IsCancellationRequested) { update = offer; UpdateIndicator(); }
+                if (!closed && !cancellation.IsCancellationRequested)
+                {
+                    update = offer; UpdateIndicator();
+                    if (offer != null) automaticOfferTimer.Start(); else automaticOfferTimer.Stop();
+                }
             }
             catch (Exception) { /* Kontrola na pozadi neblokuje otvorenie lokalnej faktury. */ }
             finally { if (automaticCheck == cancellation) automaticCheck = null; }
             return;
         }
         if (updating) return;
-        updating = true; automaticCheck?.Cancel();
+        updating = true; automaticCheck?.Cancel(); automaticOfferTimer.Stop();
         try
         {
             // Rucna kontrola ma vlastny viditelny priebeh a moznost zrusenia, aj ked siet pri starte visi.
@@ -490,6 +507,8 @@ internal sealed partial class ViewerWindow : Window
     internal bool FirstPageRendered => images.Count > 0 && images[0].Source != null;
     internal string StatusForTest => status.Text;
     internal bool UpdateAvailable => update != null && updateButton.ToolTip.ToString()!.Contains(update.Version);
+    internal bool AutomaticOfferPending => automaticOfferTimer.IsEnabled;
+    [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr window);
     internal async Task Capture(string path, bool light)
     {
         preferences.Light = light; Theme(); UpdateLayout(); await rendering.WaitAsync(); rendering.Release(); await RenderVisible();

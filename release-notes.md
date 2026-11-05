@@ -1,12 +1,7 @@
-# eFaktura Viewer 1.1.0
+# eFaktura Viewer 1.1.1
 
-Faktúry môžete prejsť, priradiť k cieľovým priečinkom a potom ich jedným tlačidlom hromadne presunúť.
+Výber cieľových priečinkov pokračuje priamo v hornom riadku za prepínačom **Vložené PDF**. Samostatný panel a opakovaný názov pod ním boli odstránené. Vybraný cieľ zostáva zvýraznený; pri úzkom okne sa tlačidlá zalomia.
 
-- V ponuke **Cieľové priečinky…** nastavíte vlastné názvy a poradie cieľov. Prvý je predvolený pre nepriradené faktúry.
-- Horné tlačidlá zobrazujú číslo aj názov, napríklad **1 · Účtovníctvo**. Cieľ aktuálnej faktúry je zvýraznený. Na výber fungujú klávesy 1 až 9, pre desiaty cieľ 0.
-- Ciele aj priradenia zostávajú uložené po reštarte. Samotný výber nič nepresúva.
-- **Presunúť faktúry** spracuje všetky rozpoznané faktúry v otvorenom priečinku vrátane neprezretých. Iné súbory a podpriečinky zostávajú na mieste.
-- Rovnaké názvy sa neprepisujú; použije sa voľný názov s číslom. Zmenený alebo nedostupný zdroj zostane na mieste a zobrazí sa výsledok operácie.
-- Po úspešnom presune sa náhľad vyprázdni. Bez nastavených cieľov zostáva aplikácia bežným prezeračom.
+Pri nájdení novej verzie po štarte sa automaticky otvorí ponuka aktualizácie. Sťahovanie sa začne až po potvrdení. Ponuka počká na ukončenie otvoreného dialógu alebo presunu faktúr a po odmietnutí sa pri listovaní neopakuje. Ručné tlačidlo aktualizácie zostáva dostupné.
 
 Vydanie obsahuje samostatný EXE pre Windows x64 a podpísané podklady pre automatickú aktualizáciu.

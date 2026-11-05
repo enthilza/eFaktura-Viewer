@@ -8,36 +8,33 @@ namespace eFakturaViewer;
 internal sealed partial class ViewerWindow
 {
     WorkflowState workflowState = new();
-    readonly StackPanel workflowPanel = new() { Margin = new Thickness(8, 0, 8, 8), Visibility = Visibility.Collapsed };
-    readonly WrapPanel workflowButtons = new();
-    readonly TextBlock workflowTarget = new() { FontSize = 11, Margin = new Thickness(2, 3, 2, 0), TextTrimming = TextTrimming.CharacterEllipsis };
+    readonly List<Button> workflowButtons = [];
+    readonly TextBlock workflowWarning = new() { Text = "Doklad sa zmenil. Vyberte cieľ znova.", FontSize = 11, Margin = new Thickness(8, 0, 6, 0), MaxWidth = 180, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     Button moveInvoicesButton = null!;
     bool movingInvoices;
     string? workflowDirectory;
 
     void InitializeWorkflows()
     {
-        header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Grid.SetRow(workflowPanel, 4); Grid.SetColumnSpan(workflowPanel, 2); header.Children.Add(workflowPanel);
-        workflowPanel.Children.Add(new ScrollViewer { Content = workflowButtons, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 104 });
-        workflowPanel.Children.Add(workflowTarget); workflowTarget.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        workflowWarning.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         Activated += (_, _) => { if (!movingInvoices) RefreshWorkflows(); };
         RefreshWorkflows();
     }
     void RefreshWorkflows()
     {
         try { workflowState = WorkflowStore.Load(); RefreshWorkflowButtons(); }
-        catch (Exception e) { workflowState = new(); workflowPanel.Visibility = Visibility.Collapsed; status.Text = "Triedenie nie je dostupné: " + e.Message; }
+        catch (Exception e) { workflowState = new(); RefreshWorkflowButtons(); status.Text = "Triedenie nie je dostupné: " + e.Message; }
     }
     void RefreshWorkflowButtons()
     {
-        workflowButtons.Children.Clear();
-        workflowPanel.Visibility = workflowState.Folders.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var button in workflowButtons) viewing.Children.Remove(button);
+        workflowButtons.Clear(); viewing.Children.Remove(workflowWarning);
         if (workflowState.Folders.Count == 0) return;
         bool ready = invoice?.IsInvoice == true && currentPath != null && !movingInvoices;
         bool changed = ready && WorkflowStore.Changed(workflowState, currentPath!, invoice!.Source);
         var selected = ready && !changed ? WorkflowStore.Selected(workflowState, currentPath, invoice!.Source) : null;
-        workflowButtons.Children.Add(new TextBlock { Text = "Cieľ:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0), FontSize = 12 });
+        // Priame deti spolocneho riadka pokracuju hned za Vlozene PDF.
+        // Samostatny vnoreny panel by pri nedostatku miesta zosunul vsetky ciele nadol.
         for (int i = 0; i < workflowState.Folders.Count; i++)
         {
             int index = i; var folder = workflowState.Folders[i];
@@ -47,16 +44,15 @@ internal sealed partial class ViewerWindow
             // Plny nazov a cesta zostavaju v popise po podrzani mysi.
             if (button.Content is StackPanel content && content.Children[0] is TextBlock label)
             { label.MaxWidth = 168; label.TextTrimming = TextTrimming.CharacterEllipsis; }
-            button.MinWidth = 32; button.Padding = new Thickness(8, 6, 8, 6); button.Margin = new Thickness(0, 0, 5, 3); button.IsEnabled = ready;
+            button.MinWidth = 32; button.Padding = new Thickness(8, 6, 8, 6); button.Margin = new Thickness(3, 0, 3, 0); button.IsEnabled = ready;
             button.SetResourceReference(Control.BackgroundProperty, folder.Id == selected?.Id ? "Accent" : "ButtonBackground");
             button.SetResourceReference(Control.ForegroundProperty, folder.Id == selected?.Id ? "AccentText" : "Text");
-            workflowButtons.Children.Add(button);
+            workflowButtons.Add(button); viewing.Children.Add(button);
         }
         moveInvoicesButton = VisualStyle.Button("move", "Presunúť faktúry", "Presunúť všetky faktúry z otvoreného priečinka podľa priradených cieľov", () => _ = MoveInvoices());
         moveInvoicesButton.IsEnabled = !movingInvoices && workflowDirectory != null && files.Count > 0 && directoryWarning.Length == 0;
-        moveInvoicesButton.Margin = new Thickness(5, 0, 0, 3); workflowButtons.Children.Add(moveInvoicesButton);
-        workflowTarget.Text = changed ? "Doklad sa od priradenia zmenil. Vyberte cieľ znova." : selected != null ? "Priradené: " + selected.Name : "Nepriradené faktúry pôjdu do: " + workflowState.Folders[0].Name;
-        workflowTarget.ToolTip = selected?.Path ?? workflowState.Folders[0].Path;
+        moveInvoicesButton.Margin = new Thickness(6, 0, 3, 0); workflowButtons.Add(moveInvoicesButton); viewing.Children.Add(moveInvoicesButton);
+        if (changed) viewing.Children.Add(workflowWarning);
     }
     void AssignWorkflow(int index)
     {
@@ -118,7 +114,8 @@ internal sealed partial class ViewerWindow
         ShowTree(null, ""); RefreshWorkflowButtons();
     }
     internal string? WorkflowTargetForTest => WorkflowStore.Selected(workflowState, currentPath, invoice?.Source)?.Path;
-    internal WrapPanel WorkflowButtonsForTest => workflowButtons;
+    internal IReadOnlyList<Button> WorkflowButtonsForTest => workflowButtons;
+    internal CheckBox EmbeddedSwitchForTest => embeddedSwitch;
     internal void TestAssignWorkflow(int index) => AssignWorkflow(index);
     internal void TestClearMovedPreview() => ClearMovedPreview();
     internal Task TestMoveInvoices() => MoveInvoices();

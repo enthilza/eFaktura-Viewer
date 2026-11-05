@@ -37,7 +37,7 @@ Technické identifikátory Peppol, atribúty XML, opakované daňové kódy part
 
 V ponuke **⋯ → Cieľové priečinky…** pridajte priečinky, pomenujte ich zrozumiteľne a nastavte ich poradie. Napríklad **Účtovníctvo**, **Na schválenie** a **Reklamácie**. Prvý priečinok je predvolený pre každú faktúru bez vlastného priradenia. Názov v aplikácii nemení názov priečinka na disku.
 
-Hore sa zobrazia tlačidlá **1 · Účtovníctvo**, **2 · Na schválenie** a ďalšie podľa vašich nastavení. Vybraný cieľ práve zobrazenej faktúry je zvýraznený. Úplnú cestu uvidíte po podržaní myši nad tlačidlom. Cieľ vyberiete kliknutím alebo klávesmi **1 až 9**; **0** označuje desiaty cieľ. Funguje aj numerická klávesnica. Ďalšie priečinky sú dostupné kliknutím, tlačidlá sa zalamujú do viacerých riadkov. Šípky vľavo/vpravo naďalej listujú faktúrami.
+Tlačidlá **1 · Účtovníctvo**, **2 · Na schválenie** a ďalšie pokračujú v hornom riadku hneď za prepínačom **Vložené PDF**. Nemajú samostatný panel pod nástrojmi. Vybraný cieľ práve zobrazenej faktúry je zvýraznený. Úplnú cestu uvidíte po podržaní myši nad tlačidlom. Cieľ vyberiete kliknutím alebo klávesmi **1 až 9**; **0** označuje desiaty cieľ. Funguje aj numerická klávesnica. Pri úzkom okne sa tlačidlá prirodzene zalomia; pri veľkom počte cieľov sa dá horná lišta posúvať. Šípky vľavo/vpravo naďalej listujú faktúrami.
 
 Priradenie zatiaľ nič nepresúva. Ciele, ich názvy, poradie a jednotlivé priradenia sa pamätajú aj po zatvorení aplikácie. Zmena poradia zachová konkrétny vybraný cieľ; nepriradené faktúry použijú nový prvý priečinok. Odstránenie cieľa z nastavení nemaže priečinok ani jeho súbory; jeho priradenia sa vrátia k predvoľbe.
 
@@ -77,7 +77,7 @@ Vlastný test používa samostatný dočasný profil v `test-results`; nemení n
 
 ## Aktualizácie a vydávanie
 
-Pri štarte prebehne automatická kontrola novej verzie; možno ju vypnúť v ponuke. Inštalácia sa spustí po potvrdení používateľa cez **Aktualizovať**. Nefunkčný internet neblokuje prezeranie.
+Pri štarte prebehne automatická kontrola novej verzie; možno ju vypnúť v ponuke. Ak sa nájde novšia verzia, automaticky sa zobrazí ponuka s tlačidlom **Aktualizovať**. Sťahovanie a inštalácia sa spustia až po potvrdení. Po odmietnutí zostáva dostupná ručná aktualizácia; ponuka sa pri listovaní neopakuje. Ak je otvorený iný dialóg alebo prebieha presun faktúr, ponuka počká na jeho ukončenie. Bez novej verzie alebo pri nedostupnej sieti sa pri štarte nezobrazuje oznam a prezeranie pokračuje.
 
 Kontrola na pozadí má limit 15 sekúnd. Ručná kontrola ju zruší a zobrazí vlastný priebeh. Bodka pri hornom tlačidle aktualizácie a jeho popis oznamujú dostupnú verziu aj po prepnutí faktúry.
 
