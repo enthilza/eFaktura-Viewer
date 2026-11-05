@@ -122,7 +122,6 @@ internal sealed partial class ViewerWindow : Window
         var bar = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 9, 0, 0) }; controls.Children.Add(bar);
         bar.Children.Add(Button("‹", "Predošlý súbor (←)", () => Navigate(-1)));
         bar.Children.Add(Button("›", "Ďalší súbor (→)", () => Navigate(1)));
-        bar.Children.Add(Button("−", "Oddialiť", () => Zoom(.85))); bar.Children.Add(Button("+", "Priblížiť", () => Zoom(1.18)));
         pageCounter.FontSize = 10; pageCounter.HorizontalAlignment = HorizontalAlignment.Center; pageCounter.Margin = new Thickness(0, 7, 0, 0); controls.Children.Add(pageCounter);
         status.TextWrapping = TextWrapping.Wrap; status.FontSize = 11; status.Margin = new Thickness(8); status.HorizontalAlignment = HorizontalAlignment.Center; status.VerticalAlignment = VerticalAlignment.Bottom; status.IsHitTestVisible = false; stage.Children.Add(status);
         emptyTitle.FontSize = 22; emptyTitle.Margin = new Thickness(20); emptyTitle.TextWrapping = TextWrapping.Wrap;

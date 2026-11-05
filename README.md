@@ -15,6 +15,7 @@ eFakturaViewer.exe "C:\Faktury\faktura.xml"
 - Náhľad sa vždy generuje z XML. Pri prvom spustení sa prispôsobí výške; potom sa zachová posledná voľba výšky, šírky alebo ručného priblíženia aj pri prechode na ďalšiu faktúru a po reštarte. Prepínač **Vložené PDF** zobrazí prílohu; pri viacerých prílohách sa objaví výber konkrétneho PDF. Aktuálny zdroj je označený v záhlaví.
 - **BIS3 · ZÁKLADNÝ** / **BIS3 · ROZŠÍRENÝ FMCG** označuje rozpoznaný obsah. FMCG sa rozpoznáva podľa známych vlastností `AdditionalItemProperty`; nejde o formálne overenie platnosti profilu.
 - **Šípky vľavo/vpravo** prechádzajú XML v rovnakom priečinku, prirodzene zoradené podľa názvu. Na konci sa pokračuje od začiatku. Poradie možno obrátiť v ponuke.
+- Spodný panel obsahuje navigačné šípky a údaje o súbore a stranách. Priblíženie sa ovláda lupou v záhlaví; spodné tlačidlá plus a mínus sa už neopakujú.
 - Pri **jedinom XML** sa spodný panel skryje. Horné ovládanie prispôsobenia výške/šírke, témy, aktualizácie a príloh zostáva dostupné.
 - **Koliesko** posúva strany, **Ctrl + koliesko** mení priblíženie. Horné tlačidlá **Prispôsobiť výške** a **Prispôsobiť šírke** prepnú spôsob zobrazenia.
 - **Lupa v záhlaví** obsahuje mínus, posuvník, plus a aktuálne percentá. Umožňuje priblíženie od 10 do 500 % aj pri jedinej faktúre. Kliknutím na percentá sa vrátite na 100 %. Posuvník aj percentá sledujú prispôsobenie výške/šírke a zmenu veľkosti okna; ručne zvolená mierka sa zachová pri listovaní aj po reštarte. Pri XML strome je lupa neaktívna.
