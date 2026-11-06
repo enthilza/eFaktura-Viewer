@@ -23,6 +23,7 @@ PROJECT.md
 PROJECT-CONTEXT.md
 .memory-project.json
 *.dpapi
+.secrets/
 *.pfx
 *.p12
 *.pem

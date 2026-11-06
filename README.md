@@ -101,7 +101,7 @@ Pre vydavateľa:
 
 Podpisovanie aj klient overujú zhodu verzie EXE s manifestom. Publikačný skript stiahne nové vydanie, overí podpis aj štart a až potom odstráni staršie vydania s ich prílohami. Na GitHube zostáva najnovšie vydanie; história zdrojov a značky verzií sa nemažú.
 
-Súkromný kľúč je **mimo projektu** v `%LOCALAPPDATA%\eFakturaViewerPublisher\signing-key.dpapi`, chránený DPAPI aktuálneho používateľa Windows. Nie je v repozitári ani vydaní. Pri bežnom vydaní ho nemeňte: nainštalované aplikácie dôverujú pôvodnému verejnému kľúču. Samotný súbor DPAPI nie je prenosnou zálohou medzi počítačmi. `-InitializeKey` slúži len na prvé založenie identity vydavateľa.
+Súkromný podpisovací kľúč je **v priečinku projektu** v `.secrets/signing-key.xml`. Synchronizuje sa spolu s projektom cez Nextcloud a jeho prenosný formát RSA XML nie je viazaný na počítač ani účet Windows. Celý priečinok `.secrets` je vylúčený z Gitu; kľúč sa nepribaľuje k EXE ani k vydaniu. Pri bežnom vydaní ho nemeňte: nainštalované aplikácie dôverujú pôvodnému verejnému kľúču. `-InitializeKey` slúži len na prvé založenie identity vydavateľa. Na ďalšom počítači stačí synchronizovaný projekt, nástroje na zostavenie a prihlásenie do GitHub CLI cez `gh auth login`; podpisovací kľúč sa používa priamo z projektu.
 
 ## Rozsah a ochrana dokumentov
 
