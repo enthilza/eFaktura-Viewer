@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace eFakturaViewer;
 
@@ -40,7 +41,20 @@ internal sealed partial class ViewerWindow
             }
         }
         catch (Exception e) { AppDialog.Info(this, "Premenovanie faktúr", e.Message); }
-        finally { movingInvoices = false; RefreshWorkflows(); }
+        finally
+        {
+            movingInvoices = false; RefreshWorkflows();
+            // Vypnute tlacidlo Premenuj strati fokus a modalne okno ho nema kam vratit.
+            // Pockame aj na obnovenie nahladu a tlacidiel. Stabilne tlacidlo vysky
+            // zostava zapnute aj pri dalsom listovani; cudziemu oknu fokus neberieme.
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (!closed && IsVisible && IsActive && !IsKeyboardFocusWithin &&
+                    activeMenu?.IsOpen != true && !sources.IsDropDownOpen &&
+                    !OwnedWindows.Cast<Window>().Any(w => w.IsVisible))
+                    fitHeightButton.Focus();
+            }, DispatcherPriority.Input);
+        }
     }
     internal Task TestRenameInvoices() => RenameInvoices();
     internal Button RenameButtonForTest => renameButton;

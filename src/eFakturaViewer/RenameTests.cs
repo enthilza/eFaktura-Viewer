@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 using System.Xml.Linq;
 
 namespace eFakturaViewer;
@@ -146,6 +149,36 @@ internal static class RenameTests
                     await window.Capture(Path.Combine(output, "rename-light.png"), true);
                     await window.Capture(Path.Combine(output, "rename-dark.png"), false);
                 }
+
+                var keyboardDirectory = Dir("klavesnica");
+                var keyboardA = XDocument.Parse(Encoding.UTF8.GetString(a));
+                keyboardA.Root!.SetElementValue(Invoice.C + "ID", "RENAME-A");
+                var keyboardB = new XDocument(keyboardA);
+                keyboardB.Root!.SetElementValue(Invoice.C + "ID", "RENAME-B");
+                var keyboardPath = Put(keyboardDirectory, "prva.xml", Encoding.UTF8.GetBytes(keyboardA.ToString()), 1);
+                Put(keyboardDirectory, "druha.xml", Encoding.UTF8.GetBytes(keyboardB.ToString()), 2);
+                await window.OpenPath(keyboardPath);
+                Check(window.RenameButtonForTest.Focus() && window.RenameButtonForTest.IsKeyboardFocused,
+                    "Pred premenovanim ma klavesnicu skutocne tlacidlo Premenuj");
+                await window.TestRenameInvoices();
+                await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.ApplicationIdle);
+                Check(window.IsKeyboardFocusWithin, "Po premenovani sa klavesnica vrati do hlavneho okna bez kliknutia");
+                async Task PressFromFocus(Key key, string expected)
+                {
+                    // Udalost zacina na skutocne fokusovanom prvku. Priamo na okne by test
+                    // presiel aj pri strate fokusu, ktoru pouzivatel opravil az kliknutim.
+                    var focused = Keyboard.FocusedElement as UIElement;
+                    Check(focused != null && Window.GetWindow(focused) == window,
+                        $"Klaves {key} ma po premenovani ciel v prezeraci");
+                    var args = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window)!, Environment.TickCount, key)
+                    { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                    focused!.RaiseEvent(args);
+                    for (int i = 0; i < 500 && (window.OpenedNumber != expected || !window.FirstPageRendered); i++) await Task.Delay(10);
+                    Check(args.Handled && window.OpenedNumber == expected && window.FirstPageRendered,
+                        $"Klaves {key} po premenovani prepne fakturu bez kliknutia mysou");
+                }
+                await PressFromFocus(Key.Right, "RENAME-B");
+                await PressFromFocus(Key.Left, "RENAME-A");
             }
             finally { window.Close(); }
         }
