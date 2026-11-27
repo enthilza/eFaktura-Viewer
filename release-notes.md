@@ -1,6 +1,8 @@
-# eFaktura Viewer 1.2.0
+# eFaktura Viewer 1.2.1
 
-Nové horné tlačidlo **Premenuj** nahradí automatické názvy XML prehľadnými názvami podľa dodávateľa a dátumov faktúry.
+Nové vydanie aktuálnej aplikácie, opätovne zostavené, overené a podpísané. Funkčné správanie je zhodné s verziou 1.2.0.
+
+Horné tlačidlo **Premenuj** nahradí automatické názvy XML prehľadnými názvami podľa dodávateľa a dátumov faktúry.
 
 - Formát: `Dodávateľ_2026-11-27_2026-11-26_1.xml`. Ak chýba dátum zdaniteľného plnenia, použije sa `bez-datumu-ZP`.
 - Faktúry sa spracujú podľa dátumu a času úpravy, od najstarších. Číslovanie je samostatné pre každého dodávateľa a pokračuje za najvyšším existujúcim číslom.
