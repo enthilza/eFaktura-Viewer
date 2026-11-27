@@ -47,6 +47,20 @@ Pri rovnakom názve sa nič neprepíše: použije sa voľný názov, napríklad 
 
 Po úspešnom presune sa náhľad vyprázdni. Pri chybe alebo prerušení sa zobrazí výsledok a zostávajúci dokument; už dokončené presuny sa automaticky nevracajú. Ak nenastavíte žiadne ciele, panel triedenia sa nezobrazí a aplikácia funguje ako bežný prezerač.
 
+## Premenovanie faktúr
+
+Horné tlačidlo **Premenuj** spracuje všetky rozpoznané XML faktúry a dobropisy priamo v otvorenom priečinku. Automatický názov úplne nahradí názvom podľa údajov XML:
+
+`Názov dodávateľa_2026-11-27_2026-11-26_1.xml`
+
+Nasledujú dátum vystavenia, dátum zdaniteľného plnenia a poradové číslo. Pri chýbajúcom dátume zdaniteľného plnenia použije presne **`bez-datumu-ZP`**. Zakázané znaky názvu dodávateľa nahradí pomlčkou; diakritiku zachová. Veľmi dlhý názov dodávateľa skráti na 120 znakov. Bez použiteľného názvu dodávateľa alebo platného dátumu vystavenia súbor ponechá a uvedie dôvod.
+
+Súbory spracuje od najstaršieho dátumu a času úpravy. Pri rovnakom čase rozhodne pôvodný názov. Každý dodávateľ má samostatný číselný rad od 1. Názvy dodávateľov, ktoré sú po očistení rovnaké, používajú spoločný rad. Už pomenované faktúry ponechá; nové pokračujú za najvyšším existujúcim číslom dodávateľa, bez ohľadu na dátumy v názve. Opakované kliknutie nemení hotové názvy.
+
+**Existujúci súbor sa neprepíše.** Premenovanie používa otvorený zdrojový súbor a systémový zákaz prepísania cieľa. Ak cieľ vznikne až počas operácie, aplikácia skúsi ďalšie poradové číslo. Obsah XML aj vložených príloh zostáva rovnaký. Ostatné súbory a podpriečinky sa nespracujú. Aktuálna faktúra zostane otvorená pod novým názvom a jej priradenie v profile používateľa sa zachová.
+
+Na spoločnom sieťovom priečinku cez SMB sa celá dávka chráni výhradným otvorením súboru `.efaktura-premenuj.lock`. Rovnaký zámok používa aj presun faktúr. Rozhoduje otvorený súbor držaný serverom, **nie samotná existencia súboru**. Druhá inštancia zobrazí oznam; aktívny zámok nemaže. Pri zavretí alebo páde procesu sa zámok uvoľní. Po výpadku počítača či siete môže server potrebovať čas na zánik spojenia. Zostávajúci súbor bez aktívneho otvorenia nebráni ďalšej dávke. Strata spojenia s držaným zámkom zastaví pokračovanie. Toto vyžaduje spoločné úložisko rešpektujúce zámky SMB, nie nezávislé lokálne kópie synchronizované cez cloud.
+
 ## Zapamätané nastavenia
 
 Poloha a veľkosť okna, maximalizácia, prispôsobenie výške/šírke, ručné priblíženie, farebná schéma, poradie súborov, posledný priečinok a kontrola aktualizácií sa ukladajú pre aktuálneho používateľa do `HKEY_CURRENT_USER\Software\eFakturaViewer`, do hodnoty `Settings`. Platia aj po premiestnení alebo aktualizácii EXE na tom istom počítači. Každý používateľ Windows má vlastné nastavenia.
@@ -71,9 +85,9 @@ Na zostavenie treba Windows x64, .NET 10 SDK a pri prvom zostavení internet na 
 build.cmd -NoPause -Verify
 ```
 
-Vznikne `dist\eFakturaViewer.exe`. Skript odstráni vlastný dočasný adresár `.build`; nemaže zdroje ani spoločnú vyrovnávaciu pamäť NuGet. `-Verify` ponechá protokol a syntetické overovacie dokumenty v `test-results`. Bez tohto prepínača sa testovacie výstupy nevytvárajú.
+Vznikne `eFakturaViewer.exe` priamo v koreňovom priečinku projektu. Dočasné súbory vznikajú v `C:\Temp\eFakturaViewer\build` a po zostavení sa odstránia. Protokol a syntetické overovacie dokumenty pri `-Verify` zostávajú v `C:\Temp\eFakturaViewer\test-results`. Staré priečinky zostavenia v projekte sa upracú; zdroje, `.secrets` a spoločná vyrovnávacia pamäť NuGet zostávajú zachované. Odkazy a asociácie smerujúce na pôvodné `dist\eFakturaViewer.exe` treba nasmerovať na nový EXE v koreni projektu.
 
-Vlastný test používa samostatný dočasný profil v `test-results`; nemení nastavenia ani uloženú schému používateľa.
+Vlastný test používa samostatný dočasný profil a izolovanú vetvu registra; nemení nastavenia ani uloženú schému používateľa.
 
 ## Aktualizácie a vydávanie
 
@@ -96,10 +110,10 @@ Pre vydavateľa:
 1. Zvýšiť `Version` v `src/eFakturaViewer/eFakturaViewer.csproj` a pripraviť `release-notes.md`.
 2. Spustiť `build.cmd -NoPause -Verify` a skontrolovať výsledok vrátane preskočených kontrol.
 3. Spustiť `powershell -NoProfile -File scripts\prepare-release.ps1`.
-4. Overiť balík: `eFakturaViewer.exe --verify-package "C:\cesta\k\dist"` (kód 0 = úspech).
+4. Overiť balík: `eFakturaViewer.exe --verify-package "C:\Temp\eFakturaViewer\release"` (kód 0 = úspech).
 5. Uložiť zmeny do commitu a odoslať zdroje na GitHub, potom spustiť `scripts\publish-release.ps1`.
 
-Podpisovanie aj klient overujú zhodu verzie EXE s manifestom. Publikačný skript stiahne nové vydanie, overí podpis aj štart a až potom odstráni staršie vydania s ich prílohami. Na GitHube zostáva najnovšie vydanie; história zdrojov a značky verzií sa nemažú.
+Podpisovanie pripraví balík v `C:\Temp\eFakturaViewer\release`; po úspešnom publikovaní sa tento dočasný balík odstráni. Podpisovanie aj klient overujú zhodu verzie EXE s manifestom. Publikačný skript stiahne nové vydanie, overí podpis aj štart a až potom odstráni staršie vydania s ich prílohami. Na GitHube zostáva najnovšie vydanie; história zdrojov a značky verzií sa nemažú.
 
 Súkromný podpisovací kľúč je **v priečinku projektu** v `.secrets/signing-key.xml`. Synchronizuje sa spolu s projektom cez Nextcloud a jeho prenosný formát RSA XML nie je viazaný na počítač ani účet Windows. Celý priečinok `.secrets` je vylúčený z Gitu; kľúč sa nepribaľuje k EXE ani k vydaniu. Pri bežnom vydaní ho nemeňte: nainštalované aplikácie dôverujú pôvodnému verejnému kľúču. `-InitializeKey` slúži len na prvé založenie identity vydavateľa. Na ďalšom počítači stačí synchronizovaný projekt, nástroje na zostavenie a prihlásenie do GitHub CLI cez `gh auth login`; podpisovací kľúč sa používa priamo z projektu.
 
@@ -107,13 +121,13 @@ Súkromný podpisovací kľúč je **v priečinku projektu** v `.secrets/signing
 
 Podporované sú Invoice a CreditNote, položky, základné množstvo ceny, DPH, zľavy/prirážky a platby. Profil FMCG sa rozpoznáva podľa 38 známych vlastností. Položky tvoria jednu súvislú tabuľku základných údajov; technické doplnky a údaje FMCG sa pod položkami nevypisujú. Všetky údaje vrátane neznámych vlastností zostávajú v strome XML. PDF nie je potvrdením platnosti BIS ani zhody s vloženou prílohou.
 
-Pri prezeraní sa vstupné súbory iba čítajú. Presun rozpoznaných XML sa vykoná výlučne po stlačení **Presunúť faktúry** do používateľom nastavených priečinkov; obsah sa nemení. Nie je tu evidencia, import do databázy ani úhrady. PDF sa vytvára v pamäti. Dokumenty sa neodosielajú na žiadnu externú službu; cieľ presunu môže byť aj používateľom zvolený sieťový priečinok. Internet sa používa na aktualizácie z GitHubu. Parser XML zakazuje DTD a externé entity; externé prílohy sa automaticky nesťahujú.
+Pri prezeraní sa vstupné súbory iba čítajú. Premenovanie sa vykoná iba po stlačení **Premenuj**; presun rozpoznaných XML iba po stlačení **Presunúť faktúry** do používateľom nastavených priečinkov; obsah sa nemení. Nie je tu evidencia, import do databázy ani úhrady. PDF sa vytvára v pamäti. Dokumenty sa neodosielajú na žiadnu externú službu; cieľ presunu môže byť aj používateľom zvolený sieťový priečinok. Internet sa používa na aktualizácie z GitHubu. Parser XML zakazuje DTD a externé entity; externé prílohy sa automaticky nesťahujú.
 
 Prevádzkové limity: XML 30 MB, 2 000 položiek, náhľad PDF 1 000 strán. PDF nad limitom sa dá uložiť celé a údaje prezrieť v strome XML. Pri prílohe chránenej heslom alebo nečitateľnej prílohe sa zobrazí chyba; prepínačom sa dá vrátiť ku generovanému náhľadu. Tlač pripravuje jednotlivé strany na požiadanie; aplikácia neuchováva bitmapy celého dokumentu naraz. Limity nie sú limitmi štandardu BIS.
 
 ## Overenie
 
-Regresné kontroly sú v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný BIS, FMCG, dobropis, nezmenené vstupy, prefixy menných priestorov XML, DTD/XXE vrátane UTF-16, poškodené XML/PDF/base64, viac príloh, presnosť cien a dátumov, 2 000 položiek, dlhý text, podpisy a rýchle listovanie počas vykresľovania. Ďalej overujú obnovu po chybe aktualizácie, ukončenie zamrznutej sondy, zamknutú zálohu, upratovanie, izoláciu nastavení, rozmery a úchopy okna, obe témy, modálne okná a horné nástroje pri jedinom XML. Aktuálny výsledok je v `test-results/self-test.json`.
+Regresné kontroly sú v `SelfTest.cs` a `ReviewTests.cs`. Overujú základný BIS, FMCG, dobropis, nezmenené vstupy, prefixy menných priestorov XML, DTD/XXE vrátane UTF-16, poškodené XML/PDF/base64, viac príloh, presnosť cien a dátumov, 2 000 položiek, dlhý text, podpisy a rýchle listovanie počas vykresľovania. Ďalej overujú obnovu po chybe aktualizácie, ukončenie zamrznutej sondy, zamknutú zálohu, upratovanie, izoláciu nastavení, rozmery a úchopy okna, obe témy, modálne okná a horné nástroje pri jedinom XML. Aktuálny výsledok je v `C:\Temp\eFakturaViewer\test-results\self-test.json`.
 
 V odpojenej relácii Windows nemusí WPF vykresliť ani nezávislú grafickú sondu. Vizuálne kontroly okna sú vtedy označené ako **preskočené**, nie úspešné. PDF je možné vykresliť a overiť nezávisle. Ručné overenie fyzickej tlačiarne, monitorov s rôznym DPI a výpadkov konkrétneho sieťového disku zostáva na cieľovom PC.
 
@@ -126,3 +140,5 @@ V odpojenej relácii Windows nemusí WPF vykresliť ani nezávislú grafickú so
 `src/eFakturaViewer`: parser XML, tvorba PDF, prezerač WPF, aktualizátor a integrované kontroly. `scripts`: zostavenie, ikona, podpisovanie a publikovanie. `examples`: iba syntetické doklady.
 
 Súkromné testovacie faktúry, pôvodné zdroje cudzieho projektu a originálna dodávateľská špecifikácia sa nepublikujú. Verejný repozitár obsahuje celý zdrojový kód tejto aplikácie. Licencie závislostí: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+
+`RenameTests.cs` overuje číslovanie, opakované spustenie, nezmenený obsah, zachovanie priradenia, kolíziu vzniknutú počas operácie a výhradný zámok medzi nezávislými procesmi vrátane násilného ukončenia testovacieho procesu. Konkrétny vzdialený SMB server a odpojenie siete sa overujú v cieľovom prostredí.

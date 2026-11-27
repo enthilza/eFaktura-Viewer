@@ -1,1 +1,10 @@
-<Project><PropertyGroup><BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath><BaseOutputPath>$(MSBuildThisFileDirectory).build\bin\$(MSBuildProjectName)\</BaseOutputPath></PropertyGroup></Project>
+<Project>
+ <!-- Vsetky bin/obj idu MIMO projektu do C:\Temp\eFakturaViewer\build, ktory build.ps1 po builde zmaze.
+      Projekt je v Nextcloude: pocas buildu v nom nesmie vzniknut nic okrem vysledneho eFakturaViewer.exe
+      v koreni (tisice malych suborov z obj\ by sa zbytocne synchronizovali). Plati aj pre rucny
+      dotnet build a IDE. Rovnaka cesta je v scripts\build.ps1. -->
+ <PropertyGroup>
+  <BaseIntermediateOutputPath>C:\Temp\eFakturaViewer\build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+  <BaseOutputPath>C:\Temp\eFakturaViewer\build\bin\$(MSBuildProjectName)\</BaseOutputPath>
+ </PropertyGroup>
+</Project>

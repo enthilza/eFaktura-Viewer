@@ -167,6 +167,7 @@ internal static class SelfTest
         window.Close();
         await PreferenceTests.Run(output, examples, checks);
         await WorkflowTests.Run(output, examples, checks, canRender);
+        await RenameTests.Run(output, examples, checks, canRender);
         File.WriteAllText(Path.Combine(output, "self-test.json"), JsonSerializer.Serialize(new { checks, skipped, runtime = Environment.Version.ToString(), version = typeof(App).Assembly.GetName().Version!.ToString(3) }, new JsonSerializerOptions { WriteIndented = true }));
     }
     internal static void SaveWindow(Window window, string path)

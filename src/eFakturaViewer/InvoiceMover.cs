@@ -36,6 +36,7 @@ internal static class InvoiceMover
         if (!held) throw new IOException("Z tohto priečinka práve presúva faktúry iné okno.");
         try
         {
+            using var batchLock = DirectoryBatchLock.Acquire(resolvedSource);
             var result = new MoveReport(); var plan = new List<MoveCandidate>();
             // Zoznam zmrazime pri kliknuti. Subory dorucene pocas operacie ostavaju
             // na dalsie triedenie, namiesto neobmedzeneho presuvania novych prirastkov.
@@ -58,7 +59,8 @@ internal static class InvoiceMover
             for (int i = 0; i < plan.Count; i++)
             {
                 if (token.IsCancellationRequested) { result.Cancelled = true; break; }
-                try { result.Moved.Add(MoveOne(plan[i], token)); }
+                try { batchLock.EnsureHeld(); result.Moved.Add(MoveOne(plan[i], token)); }
+                catch (BatchLockLostException e) { result.Problems.Add(e.Message); break; }
                 catch (OperationCanceledException) { result.Cancelled = true; break; }
                 catch (Exception e) { result.Problems.Add(System.IO.Path.GetFileName(plan[i].Source) + ": " + e.Message); }
                 progress?.Report(40 + (i + 1) * 60 / plan.Count);
@@ -121,6 +123,44 @@ internal static class InvoiceMover
             return new(item.Source, destination, item.Fingerprint);
         }
         finally { if (created && !published) { try { File.Delete(temp); } catch { /* Zdroj stale existuje; zlyhanie upratania nesmie zamaskovat pricinu. */ } } }
+    }
+
+    internal static (MoveSuccess File, string? Warning) RenameInPlace(string path, string fingerprint, Func<string> nextName, Action ensureLock, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0)
+            throw new IOException("Odkaz alebo súbor iba na čítanie nebol premenovaný.");
+        using var handle = CreateFile(path, 0x80010000, 1, IntPtr.Zero, 3, 0x00200000, IntPtr.Zero);
+        if (handle.IsInvalid) throw Error("Súbor sa nedá otvoriť na premenovanie");
+        using var source = new FileStream(handle, FileAccess.Read);
+        if (source.Length > Invoice.MaxBytes || Convert.ToHexString(SHA256.HashData(source)) != fingerprint)
+            throw new IOException("Obsah súboru sa počas prípravy zmenil. Premenovanie zopakujte.");
+        if (!FinalPath(handle).Equals(Path.Combine(ResolveDirectory(Path.GetDirectoryName(path)!), Path.GetFileName(path)), StringComparison.OrdinalIgnoreCase))
+            throw new IOException("Cesta súboru sa zmenila. Premenovanie bolo zastavené.");
+        for (int attempt = 0; attempt < 10000; attempt++)
+        {
+            token.ThrowIfCancellationRequested(); ensureLock();
+            var name = nextName();
+            if (Path.GetFileName(name) != name || !name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) throw new IOException("Nový názov súboru nie je platný.");
+            var destination = Path.Combine(Path.GetDirectoryName(path)!, name);
+            if (File.Exists(destination) || Directory.Exists(destination)) continue;
+            int error = 0;
+            var warning = WorkflowStore.RenameFile(path, destination, () =>
+            {
+                ensureLock(); token.ThrowIfCancellationRequested();
+                error = Rename(handle, destination);
+                // Pri sietovej chybe nemusi byt jasne, ci server odpoved stihol dorucit.
+                // Pripravene priradenie ponechame; zrusime ho iba pri odmietnutej kolizii.
+                if (error != 0 && error is not (80 or 183)) throw new IOException("Premenovanie sa nepodarilo potvrdiť: " + new Win32Exception(error).Message);
+                return error == 0;
+            });
+            if (error == 0) return (new(path, destination, fingerprint), warning);
+            // Aj ked ciel vznikne po File.Exists, FILE_RENAME_INFO ma ReplaceIfExists=0.
+            // Server odmietne koliziu; povodny otvoreny subor potom dostane dalsie cislo.
+            if (error is 80 or 183) continue;
+            throw new IOException("Premenovanie sa nepodarilo: " + new Win32Exception(error).Message);
+        }
+        throw new IOException("Nenašiel sa voľný názov súboru. Žiadny existujúci súbor nebol prepísaný.");
     }
 
     static string AvailableName(string directory, string name)

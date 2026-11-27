@@ -28,7 +28,7 @@ internal sealed partial class ViewerWindow : Window
     readonly TextBlock badge = new() { FontSize = 10, FontWeight = FontWeights.Medium, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(8, 0, 8, 0) };
     readonly ComboBox sources = new() { Height = 34, Margin = new Thickness(8, 0, 8, 8), Visibility = Visibility.Collapsed };
     readonly CheckBox embeddedSwitch = new() { Content = "Vložené PDF", IsEnabled = false, Opacity = .4, Margin = new Thickness(16, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Zobraziť pôvodné PDF uložené v XML" };
-    readonly Button fitHeightButton, fitWidthButton, updateButton;
+    readonly Button fitHeightButton, fitWidthButton, updateButton, renameButton;
     readonly TextBlock updateDot = new() { Text = "•", Margin = new Thickness(5, 0, 0, 0), Visibility = Visibility.Collapsed };
     readonly TreeView tree = new() { BorderThickness = new Thickness(0), Padding = new Thickness(12) };
     readonly StackPanel xmlPanel = new();
@@ -109,7 +109,9 @@ internal sealed partial class ViewerWindow : Window
         fitHeightButton = VisualStyle.Button("height", "Prispôsobiť výške", "Prispôsobiť výške", () => Fit(FitMode.Height));
         fitWidthButton = VisualStyle.Button("width", "Prispôsobiť šírke", "Prispôsobiť šírke", () => Fit(FitMode.Width));
         viewing.Children.Add(fitHeightButton); viewing.Children.Add(fitWidthButton);
-        viewing.Children.Add(CreateZoomControl()); viewing.Children.Add(embeddedSwitch);
+        viewing.Children.Add(CreateZoomControl());
+        renameButton = VisualStyle.Button("rename", "Premenuj", "Premenuje všetky FA tak, že dá do názvu súboru názov dodávateľa", () => _ = RenameInvoices());
+        viewing.Children.Add(renameButton); viewing.Children.Add(embeddedSwitch);
         Grid.SetRow(sources, 3); Grid.SetColumnSpan(sources, 2); header.Children.Add(sources);
         InitializeWorkflows();
         PreviewMouseLeftButtonDown += (_, e) =>
@@ -393,6 +395,7 @@ internal sealed partial class ViewerWindow : Window
         void Item(string text, Action action, bool enabled = true) { var i = new MenuItem { Header = text, IsEnabled = enabled }; i.Click += (_, _) => action(); m.Items.Add(i); }
         Item("Otvoriť XML…   Ctrl+O", OpenDialog);
         Item("Cieľové priečinky…", ConfigureWorkflows);
+        Item("Premenuj", () => _ = RenameInvoices(), CanRenameInvoices);
         if (workflowState.Folders.Count > 0) Item("Presunúť faktúry", () => _ = MoveInvoices(), workflowDirectory != null && files.Count > 0 && directoryWarning.Length == 0);
         if (files.Count > 1) { Item("Predošlý XML", () => Navigate(-1)); Item("Ďalší XML", () => Navigate(1)); Item(preferences.ReverseSort ? "Zoradiť podľa názvu A → Z" : "Zoradiť podľa názvu Z → A", () => { preferences.ReverseSort = !preferences.ReverseSort; SaveSettings(); if (currentPath != null) _ = OpenPath(currentPath); }); }
         m.Items.Add(new Separator());

@@ -65,7 +65,31 @@ internal static class WorkflowStore
         if (!System.IO.Path.IsPathFullyQualified(path) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) throw new IOException("Zadajte úplnú cestu k priečinku.");
         return System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path));
     }
-    static WorkflowState Change(Action<WorkflowState> edit)
+    internal static string? RenameFile(string source, string destination, Func<bool> rename) => Locked(state =>
+    {
+        // Cielove priradenie zapiseme pred zmenou nazvu. Ani pad hned po rename
+        // nesmie zaradit fakturu do prveho ciela len preto, ze este nestihol register.
+        var hasSource = state.Assignments.TryGetValue(source, out var assignment);
+        var hasDestination = state.Assignments.TryGetValue(destination, out var previous);
+        if (!hasSource && !hasDestination) { rename(); return null; }
+        if (hasSource) state.Assignments[destination] = assignment!; else state.Assignments.Remove(destination);
+        Save(state);
+        if (!rename())
+        {
+            if (hasDestination) state.Assignments[destination] = previous!; else state.Assignments.Remove(destination);
+            Save(state); return null;
+        }
+        state.Assignments.Remove(source);
+        try { Save(state); return null; }
+        catch (Exception e) { return "Súbor bol premenovaný a jeho cieľ zachovaný, ale staré priradenie sa nepodarilo vyčistiť: " + e.Message; }
+    });
+    static void Save(WorkflowState state)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(Preferences.RegistryPath);
+        key.SetValue("Workflows", JsonSerializer.Serialize(state), RegistryValueKind.String);
+    }
+    static WorkflowState Change(Action<WorkflowState> edit) => Locked(state => { edit(state); Save(state); return state; });
+    static T Locked<T>(Func<WorkflowState, T> edit)
     {
         using var mutex = new Mutex(false, @"Local\eFakturaViewer.Workflows-" + Environment.UserName);
         bool held;
@@ -75,10 +99,7 @@ internal static class WorkflowStore
         {
             // Samostatna hodnota a citanie tesne pred zmenou chrania priradenia
             // pred prepisom starymi nastaveniami druheho otvoreneho okna.
-            var state = Load(); edit(state);
-            using var key = Registry.CurrentUser.CreateSubKey(Preferences.RegistryPath);
-            key.SetValue("Workflows", JsonSerializer.Serialize(state), RegistryValueKind.String);
-            return state;
+            return edit(Load());
         }
         finally { mutex.ReleaseMutex(); }
     }

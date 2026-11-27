@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $taskVersion = ([xml](Get-Content (Join-Path $taskRoot 'src/eFakturaViewer/eFakturaViewer.csproj'))).Project.PropertyGroup.Version
-$taskDist = Join-Path $taskRoot 'dist'
+$taskDist = 'C:\Temp\eFakturaViewer\release'
 # Poslednu kontrolu robi samotna distribuovana aplikacia svojim zabudovanym verejnym klucom.
 # Neopierame sa iba o uspech podpisovacieho skriptu alebo pritomnost suborov.
 $taskVerify = Start-Process (Join-Path $taskDist 'eFakturaViewer.exe') -ArgumentList @('--verify-package', ('"' + $taskDist + '"')) -Wait -PassThru -WindowStyle Hidden
@@ -33,6 +33,8 @@ try {
         & gh release delete $taskRelease.tagName --repo $Repository --yes
         if ($LASTEXITCODE -ne 0) { throw ('Nepodarilo sa odstranit stare vydanie ' + $taskRelease.tagName) }
     }
+    foreach ($taskFile in @('eFakturaViewer.exe', 'update.json', 'update.sig')) { Remove-Item -LiteralPath (Join-Path $taskDist $taskFile) -Force }
+    Remove-Item -LiteralPath $taskDist
 } finally {
     foreach ($taskFile in @('eFakturaViewer.exe', 'update.json', 'update.sig')) { Remove-Item -LiteralPath (Join-Path $taskCheckDir $taskFile) -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $taskCheckDir -ErrorAction SilentlyContinue

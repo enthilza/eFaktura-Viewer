@@ -48,7 +48,8 @@ internal static class VisualStyle
         ["width"] = "M3,4 L3,20 M21,4 L21,20 M6,12 L18,12 M10,8 L6,12 L10,16 M14,8 L18,12 L14,16",
         ["plus"] = "M5,12 L19,12 M12,5 L12,19", ["minus"] = "M5,12 L19,12", ["more"] = "M4,11 L4,13 M12,11 L12,13 M20,11 L20,13",
         ["folder"] = "M3,7 L3,20 L21,20 L21,7 L12,7 L9,4 L3,4 Z",
-        ["move"] = "M3,7 L3,20 L21,20 L21,12 M3,7 L10,7 L13,10 M13,4 L20,4 M17,1 L20,4 L17,7"
+        ["move"] = "M3,7 L3,20 L21,20 L21,12 M3,7 L10,7 L13,10 M13,4 L20,4 M17,1 L20,4 L17,7",
+        ["rename"] = "M4,4 L11,4 M4,4 L4,20 L20,20 L20,13 M9,15 L10,11 L18,3 L21,6 L13,14 Z M16,5 L19,8"
     };
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
     internal static void RoundedShell(Window window)

@@ -27,6 +27,7 @@ internal sealed partial class ViewerWindow
     }
     void RefreshWorkflowButtons()
     {
+        renameButton.IsEnabled = CanRenameInvoices;
         foreach (var button in workflowButtons) viewing.Children.Remove(button);
         workflowButtons.Clear(); viewing.Children.Remove(workflowWarning);
         if (workflowState.Folders.Count == 0) return;
